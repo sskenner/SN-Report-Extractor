@@ -66,8 +66,8 @@ export default function TestData() {
 
   useEffect(() => {
     if (!prefilledInstance && snConfig?.instance) {
-      setInstance(snConfig.instance);
       setPrefilledInstance(snConfig.instance);
+      setInstance((current) => (current === "" ? snConfig.instance : current));
     }
   }, [snConfig, prefilledInstance]);
 
