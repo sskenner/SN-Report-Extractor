@@ -35,3 +35,88 @@ export const ServicenowPingResponse = zod.object({
   latencyMs: zod.number().describe("Round-trip latency in milliseconds"),
   error: zod.string().optional().describe("Error message if ok=false"),
 });
+
+/**
+ * @summary List all report configurations
+ */
+export const ListReportsResponseItem = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  sysId: zod.string(),
+  filterQuery: zod.string(),
+  fields: zod.string(),
+  verifiedTitle: zod.string().nullish(),
+  verifiedTable: zod.string().nullish(),
+  verifiedAt: zod.coerce.date().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+export const ListReportsResponse = zod.array(ListReportsResponseItem);
+
+/**
+ * @summary Create a new report configuration
+ */
+export const createReportBodyFilterQueryDefault = ``;
+export const createReportBodyFieldsDefault = ``;
+
+export const CreateReportBody = zod.object({
+  name: zod.string(),
+  sysId: zod.string(),
+  filterQuery: zod.string().default(createReportBodyFilterQueryDefault),
+  fields: zod.string().default(createReportBodyFieldsDefault),
+});
+
+/**
+ * @summary Update an existing report configuration
+ */
+export const UpdateReportParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateReportBody = zod.object({
+  name: zod.string().optional(),
+  sysId: zod.string().optional(),
+  filterQuery: zod.string().optional(),
+  fields: zod.string().optional(),
+});
+
+export const UpdateReportResponse = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  sysId: zod.string(),
+  filterQuery: zod.string(),
+  fields: zod.string(),
+  verifiedTitle: zod.string().nullish(),
+  verifiedTable: zod.string().nullish(),
+  verifiedAt: zod.coerce.date().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Delete a report configuration
+ */
+export const DeleteReportParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+/**
+ * Fetches the report definition from sys_report table and stores the resolved title and table
+ * @summary Verify a report config against ServiceNow
+ */
+export const VerifyReportParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const VerifyReportResponse = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  sysId: zod.string(),
+  filterQuery: zod.string(),
+  fields: zod.string(),
+  verifiedTitle: zod.string().nullish(),
+  verifiedTable: zod.string().nullish(),
+  verifiedAt: zod.coerce.date().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});

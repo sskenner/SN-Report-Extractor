@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import { Link } from "wouter";
 import {
   useServicenowConfig,
   useServicenowPing,
@@ -6,7 +7,7 @@ import {
 } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Server, Activity, CheckCircle2, XCircle, Globe, AlertTriangle } from "lucide-react";
+import { Server, Activity, CheckCircle2, XCircle, Globe, AlertTriangle, FileText } from "lucide-react";
 import { motion } from "framer-motion";
 import { Spinner } from "@/components/ui/spinner";
 
@@ -46,11 +47,6 @@ export default function Home() {
       ? (pingError as Error).message ?? "Network error — could not reach the API server."
       : null;
 
-  useEffect(() => {
-    document.documentElement.classList.add("dark");
-    return () => document.documentElement.classList.remove("dark");
-  }, []);
-
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col items-center justify-center p-4">
       <div className="max-w-2xl w-full space-y-8">
@@ -59,9 +55,18 @@ export default function Home() {
             <Server className="w-8 h-8 text-primary" />
             SN Report Tool
           </h1>
-          <p className="text-muted-foreground font-mono text-sm">
+            <p className="text-muted-foreground font-mono text-sm">
             IT Operations // Diagnostic Panel
           </p>
+        </div>
+
+        <div className="flex justify-center">
+          <Link href="/reports">
+            <Button variant="outline" size="sm" data-testid="button-nav-reports">
+              <FileText className="w-4 h-4 mr-2" />
+              Report Configurations
+            </Button>
+          </Link>
         </div>
 
         <Card className="border-border bg-card/50 backdrop-blur" data-testid="card-dashboard">

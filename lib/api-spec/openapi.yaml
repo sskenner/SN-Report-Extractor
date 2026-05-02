@@ -12,6 +12,8 @@ tags:
     description: Health operations
   - name: servicenow
     description: ServiceNow connectivity operations
+  - name: reports
+    description: Report configuration management
 paths:
   /healthz:
     get:
@@ -64,6 +66,153 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiError"
+  /reports:
+    get:
+      operationId: listReports
+      tags: [reports]
+      summary: List all report configurations
+      responses:
+        "200":
+          description: List of report configs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ReportConfig"
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    post:
+      operationId: createReport
+      tags: [reports]
+      summary: Create a new report configuration
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateReportRequest"
+      responses:
+        "201":
+          description: Created report config
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReportConfig"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /reports/{id}:
+    put:
+      operationId: updateReport
+      tags: [reports]
+      summary: Update an existing report configuration
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateReportRequest"
+      responses:
+        "200":
+          description: Updated report config
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReportConfig"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: Report not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    delete:
+      operationId: deleteReport
+      tags: [reports]
+      summary: Delete a report configuration
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted successfully
+        "404":
+          description: Report not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /reports/{id}/verify:
+    post:
+      operationId: verifyReport
+      tags: [reports]
+      summary: Verify a report config against ServiceNow
+      description: Fetches the report definition from sys_report table and stores the resolved title and table
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Verification result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReportConfig"
+        "404":
+          description: Report not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
 components:
   schemas:
     HealthStatus:
@@ -107,3 +256,67 @@ components:
           type: string
       required:
         - error
+    ReportConfig:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        sysId:
+          type: string
+        filterQuery:
+          type: string
+        fields:
+          type: string
+        verifiedTitle:
+          type: string
+          nullable: true
+        verifiedTable:
+          type: string
+          nullable: true
+        verifiedAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - name
+        - sysId
+        - filterQuery
+        - fields
+        - createdAt
+        - updatedAt
+    CreateReportRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        sysId:
+          type: string
+        filterQuery:
+          type: string
+          default: ""
+        fields:
+          type: string
+          default: ""
+      required:
+        - name
+        - sysId
+    UpdateReportRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        sysId:
+          type: string
+        filterQuery:
+          type: string
+        fields:
+          type: string

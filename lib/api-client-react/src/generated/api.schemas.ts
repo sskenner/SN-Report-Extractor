@@ -28,3 +28,30 @@ export interface ServicenowConfig {
 export interface ApiError {
   error: string;
 }
+
+export interface ReportConfig {
+  id: number;
+  name: string;
+  sysId: string;
+  filterQuery: string;
+  fields: string;
+  verifiedTitle?: string | null;
+  verifiedTable?: string | null;
+  verifiedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateReportRequest {
+  name: string;
+  sysId: string;
+  filterQuery?: string;
+  fields?: string;
+}
+
+export interface UpdateReportRequest {
+  name?: string;
+  sysId?: string;
+  filterQuery?: string;
+  fields?: string;
+}
