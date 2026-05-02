@@ -6,7 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export * from "./apiError";
-export * from "./healthStatus";
-export * from "./pingResult";
-export * from "./servicenowConfig";
+export interface ServicenowConfig {
+  /** The configured ServiceNow instance URL */
+  instance: string;
+}

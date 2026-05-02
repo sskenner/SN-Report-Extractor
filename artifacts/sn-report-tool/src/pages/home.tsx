@@ -1,17 +1,24 @@
 import { useState, useEffect } from "react";
-import { useServicenowPing } from "@workspace/api-client-react";
+import {
+  useServicenowConfig,
+  useServicenowPing,
+  getServicenowPingQueryKey,
+} from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Server, Activity, CheckCircle2, XCircle } from "lucide-react";
+import { Server, Activity, CheckCircle2, XCircle, Globe } from "lucide-react";
 import { motion } from "framer-motion";
 import { Spinner } from "@/components/ui/spinner";
 
 export default function Home() {
   const [hasTested, setHasTested] = useState(false);
 
+  const { data: config, isLoading: isLoadingConfig } = useServicenowConfig();
+
   const { data: pingResult, isLoading, isFetching, refetch } = useServicenowPing({
     query: {
       enabled: false,
+      queryKey: getServicenowPingQueryKey(),
     },
   });
 
@@ -51,6 +58,20 @@ export default function Home() {
             </CardDescription>
           </CardHeader>
           <CardContent className="pt-6 flex flex-col items-center space-y-6">
+            {isLoadingConfig ? (
+              <div className="flex items-center gap-2 text-muted-foreground text-sm font-mono" data-testid="text-instance-loading">
+                <Spinner className="w-4 h-4" />
+                Loading configuration...
+              </div>
+            ) : config?.instance ? (
+              <div className="w-full flex items-center gap-3 px-4 py-3 rounded-md bg-muted/40 border border-border/50" data-testid="container-instance-url">
+                <Globe className="w-4 h-4 text-muted-foreground shrink-0" />
+                <span className="font-mono text-sm text-foreground" data-testid="text-instance-url-static">
+                  {config.instance}
+                </span>
+              </div>
+            ) : null}
+
             <Button
               size="lg"
               className="w-full sm:w-auto font-mono text-base px-8 h-12"
@@ -114,7 +135,7 @@ export default function Home() {
                       <div className="text-sm space-y-1">
                         <div className="flex items-center gap-2">
                           <span className="text-muted-foreground font-mono w-20">HOST:</span>
-                          <span className="font-mono text-foreground" data-testid="text-instance-url">
+                          <span className="font-mono text-foreground" data-testid="text-instance-url-result">
                             {pingResult.instance}
                           </span>
                         </div>

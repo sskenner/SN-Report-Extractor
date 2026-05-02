@@ -16,6 +16,14 @@ export const HealthCheckResponse = zod.object({
 });
 
 /**
+ * Returns the configured ServiceNow instance URL (non-sensitive)
+ * @summary Get ServiceNow configuration
+ */
+export const ServicenowConfigResponse = zod.object({
+  instance: zod.string().describe("The configured ServiceNow instance URL"),
+});
+
+/**
  * Makes a lightweight request to the configured ServiceNow instance and returns connection status
  * @summary Test ServiceNow connectivity
  */

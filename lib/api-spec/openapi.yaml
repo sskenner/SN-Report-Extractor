@@ -26,6 +26,25 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /servicenow/config:
+    get:
+      operationId: servicenowConfig
+      tags: [servicenow]
+      summary: Get ServiceNow configuration
+      description: Returns the configured ServiceNow instance URL (non-sensitive)
+      responses:
+        "200":
+          description: Configuration details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServicenowConfig"
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
   /servicenow/ping:
     get:
       operationId: servicenowPing
@@ -73,6 +92,14 @@ components:
         - ok
         - instance
         - latencyMs
+    ServicenowConfig:
+      type: object
+      properties:
+        instance:
+          type: string
+          description: The configured ServiceNow instance URL
+      required:
+        - instance
     ApiError:
       type: object
       properties:

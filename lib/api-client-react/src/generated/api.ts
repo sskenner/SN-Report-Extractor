@@ -13,7 +13,12 @@ import type {
   UseQueryResult,
 } from "@tanstack/react-query";
 
-import type { ApiError, HealthStatus, PingResult } from "./api.schemas";
+import type {
+  ApiError,
+  HealthStatus,
+  PingResult,
+  ServicenowConfig,
+} from "./api.schemas";
 
 import { customFetch } from "../custom-fetch";
 import type { ErrorType } from "../custom-fetch";
@@ -92,6 +97,82 @@ export function useHealthCheck<
   request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getHealthCheckQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Returns the configured ServiceNow instance URL (non-sensitive)
+ * @summary Get ServiceNow configuration
+ */
+export const getServicenowConfigUrl = () => {
+  return `/api/servicenow/config`;
+};
+
+export const servicenowConfig = async (
+  options?: RequestInit,
+): Promise<ServicenowConfig> => {
+  return customFetch<ServicenowConfig>(getServicenowConfigUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getServicenowConfigQueryKey = () => {
+  return [`/api/servicenow/config`] as const;
+};
+
+export const getServicenowConfigQueryOptions = <
+  TData = Awaited<ReturnType<typeof servicenowConfig>>,
+  TError = ErrorType<ApiError>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof servicenowConfig>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getServicenowConfigQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof servicenowConfig>>
+  > = ({ signal }) => servicenowConfig({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof servicenowConfig>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ServicenowConfigQueryResult = NonNullable<
+  Awaited<ReturnType<typeof servicenowConfig>>
+>;
+export type ServicenowConfigQueryError = ErrorType<ApiError>;
+
+/**
+ * @summary Get ServiceNow configuration
+ */
+
+export function useServicenowConfig<
+  TData = Awaited<ReturnType<typeof servicenowConfig>>,
+  TError = ErrorType<ApiError>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof servicenowConfig>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getServicenowConfigQueryOptions(options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

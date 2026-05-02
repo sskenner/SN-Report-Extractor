@@ -3,6 +3,15 @@ import { logger } from "../lib/logger";
 
 const router = Router();
 
+router.get("/servicenow/config", (req, res) => {
+  const instance = process.env.SN_INSTANCE;
+  if (!instance) {
+    res.status(500).json({ error: "SN_INSTANCE secret is not configured." });
+    return;
+  }
+  res.json({ instance });
+});
+
 router.get("/servicenow/ping", async (req, res) => {
   const instance = process.env.SN_INSTANCE;
   const username = process.env.SN_USERNAME;

@@ -20,6 +20,11 @@ export interface PingResult {
   error?: string;
 }
 
+export interface ServicenowConfig {
+  /** The configured ServiceNow instance URL */
+  instance: string;
+}
+
 export interface ApiError {
   error: string;
 }
