@@ -52,8 +52,7 @@ function normalizeInstance(raw: string): string {
   return s.replace(/\/+$/, "");
 }
 
-const PRIVATE_HOST_RE =
-  /^(localhost|127\.|10\.|192\.168\.|169\.254\.|172\.(1[6-9]|2\d|3[01])\.|0\.|::1$|fc|fd)/i;
+const ALLOWED_HOST_RE = /^[a-z0-9-]+\.service-now\.com$/i;
 
 function validateOverrideInstance(raw: string): { ok: true; url: string; host: string } | { ok: false; error: string } {
   const normalized = normalizeInstance(raw);
@@ -66,8 +65,8 @@ function validateOverrideInstance(raw: string): { ok: true; url: string; host: s
   if (parsed.protocol !== "https:") {
     return { ok: false, error: "instance must use https://." };
   }
-  if (PRIVATE_HOST_RE.test(parsed.hostname)) {
-    return { ok: false, error: "instance must be a public ServiceNow hostname." };
+  if (!ALLOWED_HOST_RE.test(parsed.hostname)) {
+    return { ok: false, error: "instance must be a *.service-now.com hostname." };
   }
   return { ok: true, url: `${parsed.protocol}//${parsed.host}${parsed.pathname.replace(/\/+$/, "")}`, host: parsed.hostname };
 }
@@ -185,11 +184,11 @@ router.post("/test-data/generate", async (req, res) => {
   const overrideInstanceRaw = typeof req.body?.instance === "string" ? req.body.instance.trim() : "";
   const overrideUsername = typeof req.body?.username === "string" ? req.body.username.trim() : "";
   const overridePassword = typeof req.body?.password === "string" ? req.body.password : "";
-  const wantsOverride = overrideUsername.length > 0 || overridePassword.length > 0;
+  const providedCount = [overrideInstanceRaw, overrideUsername, overridePassword].filter((v) => v.length > 0).length;
 
   let creds: Credentials;
   let host: string;
-  if (!wantsOverride) {
+  if (providedCount === 0) {
     const envCreds = getEnvCredentials();
     if (!envCreds) {
       res.status(500).json({
@@ -200,14 +199,7 @@ router.post("/test-data/generate", async (req, res) => {
     }
     creds = envCreds;
     host = hostnameOfEnv(envCreds.instance);
-  } else {
-    if (overrideInstanceRaw.length === 0 || overrideUsername.length === 0 || overridePassword.length === 0) {
-      res.status(400).json({
-        error:
-          "Provide all three of instance, username, and password to override credentials — or leave Username and Password blank to use the configured credentials.",
-      });
-      return;
-    }
+  } else if (providedCount === 3) {
     const validated = validateOverrideInstance(overrideInstanceRaw);
     if (!validated.ok) {
       res.status(400).json({ error: validated.error });
@@ -215,6 +207,12 @@ router.post("/test-data/generate", async (req, res) => {
     }
     creds = { instance: validated.url, username: overrideUsername, password: overridePassword };
     host = validated.host;
+  } else {
+    res.status(400).json({
+      error:
+        "Provide all three of instance, username, and password to override credentials — or leave all three blank to use the configured credentials.",
+    });
+    return;
   }
 
   state.running = true;
@@ -230,7 +228,7 @@ router.post("/test-data/generate", async (req, res) => {
   state.targetInstance = host;
 
   logger.info(
-    { count, instance: state.targetInstance, usingOverride: wantsOverride },
+    { count, instance: state.targetInstance, usingOverride: providedCount === 3 },
     "Starting test data generation"
   );
 

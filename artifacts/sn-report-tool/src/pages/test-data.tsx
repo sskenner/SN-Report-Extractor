@@ -47,7 +47,7 @@ export default function TestData() {
   const [instance, setInstance] = useState<string>("");
   const [username, setUsername] = useState<string>("");
   const [password, setPassword] = useState<string>("");
-  const [instancePrefilled, setInstancePrefilled] = useState(false);
+  const [prefilledInstance, setPrefilledInstance] = useState<string>("");
   const [isStarting, setIsStarting] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
@@ -65,11 +65,11 @@ export default function TestData() {
   });
 
   useEffect(() => {
-    if (!instancePrefilled && snConfig?.instance) {
+    if (!prefilledInstance && snConfig?.instance) {
       setInstance(snConfig.instance);
-      setInstancePrefilled(true);
+      setPrefilledInstance(snConfig.instance);
     }
-  }, [snConfig, instancePrefilled]);
+  }, [snConfig, prefilledInstance]);
 
   const { data: status } = useTestDataStatus({
     query: {
@@ -105,7 +105,11 @@ export default function TestData() {
 
   const trimmedInstance = instance.trim();
   const trimmedUsername = username.trim();
-  const wantsOverride = trimmedUsername.length > 0 || password.length > 0;
+  const instanceMatchesPrefill = prefilledInstance !== "" && trimmedInstance === prefilledInstance;
+  const wantsOverride =
+    trimmedUsername.length > 0 ||
+    password.length > 0 ||
+    (trimmedInstance.length > 0 && !instanceMatchesPrefill);
   const overrideComplete =
     wantsOverride && trimmedInstance.length > 0 && trimmedUsername.length > 0 && password.length > 0;
   const overridesIncomplete = wantsOverride && !overrideComplete;
@@ -114,7 +118,7 @@ export default function TestData() {
   const handleGenerate = async () => {
     if (overridesIncomplete) {
       setStartError(
-        "Provide all three of Instance URL, Username, and Password — or leave Username and Password blank to use the configured credentials."
+        "Provide all three of Instance URL, Username, and Password — or leave all three blank (revert Instance URL to the configured value) to use the configured credentials."
       );
       return;
     }
@@ -251,9 +255,10 @@ export default function TestData() {
                   Target Instance & Service Account
                 </p>
                 <p className="text-xs text-muted-foreground font-mono">
-                  Leave Username and Password blank to use the configured credentials. To target a
-                  different instance or service account for this run only, fill in all three fields
-                  (https only) — credentials are sent over HTTPS and never stored.
+                  Keep the pre-filled Instance URL and leave Username + Password blank to use the
+                  configured credentials. To target a different instance or service account for this
+                  run only, fill in all three fields (https only, *.service-now.com) — credentials
+                  are sent over HTTPS and never stored.
                 </p>
               </div>
 
@@ -312,8 +317,9 @@ export default function TestData() {
                 >
                   <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
                   <span>
-                    Provide all three of Instance URL, Username, and Password — or leave Username and
-                    Password blank to use the configured credentials.
+                    Provide all three of Instance URL, Username, and Password — or revert Instance URL
+                    to the pre-filled value and leave Username and Password blank to use the
+                    configured credentials.
                   </span>
                 </div>
               )}
