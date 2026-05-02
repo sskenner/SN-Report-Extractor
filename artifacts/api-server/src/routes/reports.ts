@@ -1,9 +1,15 @@
 import { Router } from "express";
 import { eq } from "drizzle-orm";
-import { db, reportConfigsTable } from "@workspace/db";
+import { db, reportConfigsTable, insertReportConfigSchema, updateReportConfigSchema } from "@workspace/db";
 import { logger } from "../lib/logger";
 
 const router = Router();
+
+const SYS_ID_RE = /^[0-9a-f]{32}$/i;
+
+function validateSysId(sysId: string): boolean {
+  return SYS_ID_RE.test(sysId.trim());
+}
 
 router.get("/reports", async (req, res) => {
   try {
@@ -19,21 +25,23 @@ router.get("/reports", async (req, res) => {
 });
 
 router.post("/reports", async (req, res) => {
-  const { name, sysId, filterQuery = "", fields = "" } = req.body ?? {};
-
-  if (!name || typeof name !== "string" || !name.trim()) {
-    res.status(400).json({ error: "name is required." });
+  const parsed = insertReportConfigSchema.safeParse(req.body ?? {});
+  if (!parsed.success) {
+    const message = parsed.error.issues.map((i) => i.message).join("; ");
+    res.status(400).json({ error: message });
     return;
   }
-  if (!sysId || typeof sysId !== "string" || !sysId.trim()) {
-    res.status(400).json({ error: "sysId is required." });
+
+  const { sysId } = parsed.data;
+  if (!validateSysId(sysId)) {
+    res.status(400).json({ error: "sysId must be a 32-character hexadecimal string." });
     return;
   }
 
   try {
     const [created] = await db
       .insert(reportConfigsTable)
-      .values({ name: name.trim(), sysId: sysId.trim(), filterQuery, fields })
+      .values({ ...parsed.data, sysId: sysId.trim().toLowerCase() })
       .returning();
     res.status(201).json(created);
   } catch (err) {
@@ -49,12 +57,31 @@ router.put("/reports/:id", async (req, res) => {
     return;
   }
 
-  const { name, sysId, filterQuery, fields } = req.body ?? {};
-  const patch: Record<string, unknown> = { updatedAt: new Date() };
-  if (name !== undefined) patch.name = name;
-  if (sysId !== undefined) patch.sysId = sysId;
-  if (filterQuery !== undefined) patch.filterQuery = filterQuery;
-  if (fields !== undefined) patch.fields = fields;
+  const parsed = updateReportConfigSchema.safeParse(req.body ?? {});
+  if (!parsed.success) {
+    const message = parsed.error.issues.map((i) => i.message).join("; ");
+    res.status(400).json({ error: message });
+    return;
+  }
+
+  if (Object.keys(parsed.data).length === 0) {
+    res.status(400).json({ error: "No fields provided to update." });
+    return;
+  }
+
+  const { sysId } = parsed.data;
+  if (sysId !== undefined && !validateSysId(sysId)) {
+    res.status(400).json({ error: "sysId must be a 32-character hexadecimal string." });
+    return;
+  }
+
+  const patch: Record<string, unknown> = { ...parsed.data, updatedAt: new Date() };
+  if (sysId !== undefined) {
+    patch.sysId = sysId.trim().toLowerCase();
+    patch.verifiedTitle = null;
+    patch.verifiedTable = null;
+    patch.verifiedAt = null;
+  }
 
   try {
     const [updated] = await db
@@ -115,6 +142,11 @@ router.post("/reports/:id/verify", async (req, res) => {
     return;
   }
 
+  if (!validateSysId(report.sysId)) {
+    res.status(400).json({ error: "The stored sysId is not a valid 32-character hex string." });
+    return;
+  }
+
   const instance = process.env.SN_INSTANCE;
   const username = process.env.SN_USERNAME;
   const password = process.env.SN_PASSWORD;
@@ -127,7 +159,8 @@ router.post("/reports/:id/verify", async (req, res) => {
   }
 
   try {
-    const url = `${instance}/api/now/table/sys_report/${report.sysId}?sysparm_fields=sys_id,title,table,type`;
+    const encodedSysId = encodeURIComponent(report.sysId);
+    const url = `${instance}/api/now/table/sys_report/${encodedSysId}?sysparm_fields=sys_id,title,table,type`;
     const basicAuth = Buffer.from(`${username}:${password}`).toString("base64");
 
     const response = await fetch(url, {
