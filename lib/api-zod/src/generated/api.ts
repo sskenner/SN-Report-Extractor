@@ -166,6 +166,24 @@ export const GenerateTestDataBody = zod.object({
     .min(1)
     .max(generateTestDataBodyCountMax)
     .describe("Number of incidents to create"),
+  instance: zod
+    .string()
+    .optional()
+    .describe(
+      "Optional ServiceNow instance URL override (e.g. https:\/\/devXXXXX.service-now.com). Must be supplied together with username and password.",
+    ),
+  username: zod
+    .string()
+    .optional()
+    .describe(
+      "Optional ServiceNow service-account username override. Must be supplied together with instance and password.",
+    ),
+  password: zod
+    .string()
+    .optional()
+    .describe(
+      "Optional ServiceNow service-account password override. Must be supplied together with instance and username. Never logged or persisted.",
+    ),
 });
 
 /**
@@ -193,6 +211,12 @@ export const TestDataStatusResponse = zod.object({
   milestones: zod
     .array(zod.string())
     .describe("Progress milestone messages (every 100 records)"),
+  targetInstance: zod
+    .string()
+    .nullish()
+    .describe(
+      "Hostname of the ServiceNow instance the current\/last run targeted",
+    ),
 });
 
 /**

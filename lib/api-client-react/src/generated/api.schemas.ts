@@ -68,6 +68,12 @@ export interface GenerateTestDataRequest {
    * @maximum 2000
    */
   count: number;
+  /** Optional ServiceNow instance URL override (e.g. https://devXXXXX.service-now.com). Must be supplied together with username and password. */
+  instance?: string;
+  /** Optional ServiceNow service-account username override. Must be supplied together with instance and password. */
+  username?: string;
+  /** Optional ServiceNow service-account password override. Must be supplied together with instance and username. Never logged or persisted. */
+  password?: string;
 }
 
 export interface TestDataStatus {
@@ -86,6 +92,8 @@ export interface TestDataStatus {
   recentErrors: string[];
   /** Progress milestone messages (every 100 records) */
   milestones: string[];
+  /** Hostname of the ServiceNow instance the current/last run targeted */
+  targetInstance?: string | null;
 }
 
 export interface ReportRun {

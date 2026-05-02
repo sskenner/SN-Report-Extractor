@@ -7,6 +7,8 @@ const CATEGORIES = ["Software", "Hardware", "Network", "Inquiry / Help", "Databa
 const PRIORITIES = ["1 - Critical", "2 - High", "3 - Moderate", "4 - Low"];
 const STATES = ["New", "In Progress", "On Hold", "Resolved", "Closed"];
 
+type Credentials = { instance: string; username: string; password: string };
+
 type GenerationState = {
   running: boolean;
   cancelRequested: boolean;
@@ -18,6 +20,7 @@ type GenerationState = {
   completedAt: number | null;
   recentErrors: string[];
   milestones: string[];
+  targetInstance: string | null;
 };
 
 const state: GenerationState = {
@@ -31,14 +34,50 @@ const state: GenerationState = {
   completedAt: null,
   recentErrors: [],
   milestones: [],
+  targetInstance: null,
 };
 
-function getCredentials(): { instance: string; username: string; password: string } | null {
+function getEnvCredentials(): Credentials | null {
   const instance = process.env.SN_INSTANCE;
   const username = process.env.SN_ADMIN_USERNAME ?? process.env.SN_USERNAME;
   const password = process.env.SN_ADMIN_PASSWORD ?? process.env.SN_PASSWORD;
   if (!instance || !username || !password) return null;
   return { instance, username, password };
+}
+
+function normalizeInstance(raw: string): string {
+  let s = raw.trim();
+  if (!s) return s;
+  if (!/^https?:\/\//i.test(s)) s = `https://${s}`;
+  return s.replace(/\/+$/, "");
+}
+
+const PRIVATE_HOST_RE =
+  /^(localhost|127\.|10\.|192\.168\.|169\.254\.|172\.(1[6-9]|2\d|3[01])\.|0\.|::1$|fc|fd)/i;
+
+function validateOverrideInstance(raw: string): { ok: true; url: string; host: string } | { ok: false; error: string } {
+  const normalized = normalizeInstance(raw);
+  let parsed: URL;
+  try {
+    parsed = new URL(normalized);
+  } catch {
+    return { ok: false, error: "instance must be a valid URL (e.g. https://devXXXXX.service-now.com)." };
+  }
+  if (parsed.protocol !== "https:") {
+    return { ok: false, error: "instance must use https://." };
+  }
+  if (PRIVATE_HOST_RE.test(parsed.hostname)) {
+    return { ok: false, error: "instance must be a public ServiceNow hostname." };
+  }
+  return { ok: true, url: `${parsed.protocol}//${parsed.host}${parsed.pathname.replace(/\/+$/, "")}`, host: parsed.hostname };
+}
+
+function hostnameOfEnv(instance: string): string {
+  try {
+    return new URL(instance).hostname;
+  } catch {
+    return instance;
+  }
 }
 
 function stateSnapshot() {
@@ -57,12 +96,11 @@ function stateSnapshot() {
     durationMs,
     recentErrors: [...state.recentErrors],
     milestones: [...state.milestones],
+    targetInstance: state.targetInstance,
   };
 }
 
-async function runGeneration(count: number, creds: ReturnType<typeof getCredentials>): Promise<void> {
-  if (!creds) return;
-
+async function runGeneration(count: number, creds: Credentials, host: string): Promise<void> {
   const { instance, username, password } = creds;
   const basicAuth = Buffer.from(`${username}:${password}`).toString("base64");
   const url = `${instance}/api/now/table/incident`;
@@ -100,15 +138,15 @@ async function runGeneration(count: number, creds: ReturnType<typeof getCredenti
 
       if (state.created % 100 === 0) {
         const elapsed = ((Date.now() - (state.startedAt ?? Date.now())) / 1000).toFixed(1);
-        const msg = `Created ${state.created} / ${count} records — ${elapsed}s elapsed`;
+        const msg = `[${host}] Created ${state.created} / ${count} records — ${elapsed}s elapsed`;
         state.milestones.push(msg);
-        logger.info({ created: state.created, total: count, elapsed: `${elapsed}s` }, "Test data progress");
+        logger.info({ created: state.created, total: count, elapsed: `${elapsed}s`, instance: host }, "Test data progress");
       }
     } catch (err) {
       state.failed++;
       const msg = err instanceof Error ? err.message : String(err);
-      logger.warn({ i, err: msg }, "Failed to create test incident");
-      state.recentErrors.push(`Record ${i}: ${msg}`);
+      logger.warn({ i, err: msg, instance: host }, "Failed to create test incident");
+      state.recentErrors.push(`[${host}] Record ${i}: ${msg}`);
       if (state.recentErrors.length > 20) {
         state.recentErrors.shift();
       }
@@ -122,11 +160,11 @@ async function runGeneration(count: number, creds: ReturnType<typeof getCredenti
   state.status = wasCancelled ? "cancelled" : "completed";
   const elapsed = ((state.completedAt - (state.startedAt ?? state.completedAt)) / 1000).toFixed(1);
   const doneMsg = wasCancelled
-    ? `Cancelled — ${state.created} / ${state.total} records created in ${elapsed}s`
-    : `Done — ${state.created} / ${state.total} records created in ${elapsed}s`;
+    ? `[${host}] Cancelled — ${state.created} / ${state.total} records created in ${elapsed}s`
+    : `[${host}] Done — ${state.created} / ${state.total} records created in ${elapsed}s`;
   state.milestones.push(doneMsg);
   logger.info(
-    { created: state.created, failed: state.failed, elapsed: `${elapsed}s`, cancelled: wasCancelled },
+    { created: state.created, failed: state.failed, elapsed: `${elapsed}s`, cancelled: wasCancelled, instance: host },
     wasCancelled ? "Test data generation cancelled" : "Test data generation complete"
   );
 }
@@ -144,13 +182,39 @@ router.post("/test-data/generate", async (req, res) => {
     return;
   }
 
-  const creds = getCredentials();
-  if (!creds) {
-    res.status(500).json({
-      error:
-        "ServiceNow credentials are not configured. Set SN_INSTANCE and either SN_ADMIN_USERNAME/SN_ADMIN_PASSWORD or SN_USERNAME/SN_PASSWORD.",
-    });
-    return;
+  const overrideInstanceRaw = typeof req.body?.instance === "string" ? req.body.instance.trim() : "";
+  const overrideUsername = typeof req.body?.username === "string" ? req.body.username.trim() : "";
+  const overridePassword = typeof req.body?.password === "string" ? req.body.password : "";
+  const wantsOverride = overrideUsername.length > 0 || overridePassword.length > 0;
+
+  let creds: Credentials;
+  let host: string;
+  if (!wantsOverride) {
+    const envCreds = getEnvCredentials();
+    if (!envCreds) {
+      res.status(500).json({
+        error:
+          "ServiceNow credentials are not configured. Set SN_INSTANCE and either SN_ADMIN_USERNAME/SN_ADMIN_PASSWORD or SN_USERNAME/SN_PASSWORD, or supply instance/username/password in the request.",
+      });
+      return;
+    }
+    creds = envCreds;
+    host = hostnameOfEnv(envCreds.instance);
+  } else {
+    if (overrideInstanceRaw.length === 0 || overrideUsername.length === 0 || overridePassword.length === 0) {
+      res.status(400).json({
+        error:
+          "Provide all three of instance, username, and password to override credentials — or leave Username and Password blank to use the configured credentials.",
+      });
+      return;
+    }
+    const validated = validateOverrideInstance(overrideInstanceRaw);
+    if (!validated.ok) {
+      res.status(400).json({ error: validated.error });
+      return;
+    }
+    creds = { instance: validated.url, username: overrideUsername, password: overridePassword };
+    host = validated.host;
   }
 
   state.running = true;
@@ -163,11 +227,15 @@ router.post("/test-data/generate", async (req, res) => {
   state.completedAt = null;
   state.recentErrors = [];
   state.milestones = [];
+  state.targetInstance = host;
 
-  logger.info({ count, instance: creds.instance }, "Starting test data generation");
+  logger.info(
+    { count, instance: state.targetInstance, usingOverride: wantsOverride },
+    "Starting test data generation"
+  );
 
-  runGeneration(count, creds).catch((err) => {
-    logger.error({ err }, "Unhandled error in test data generation");
+  runGeneration(count, creds, host).catch((err) => {
+    logger.error({ err, instance: state.targetInstance }, "Unhandled error in test data generation");
     state.running = false;
     state.cancelRequested = false;
     state.status = "completed";
@@ -183,7 +251,7 @@ router.post("/test-data/cancel", (_req, res) => {
     return;
   }
   state.cancelRequested = true;
-  logger.info("Cancel requested for test data generation");
+  logger.info({ instance: state.targetInstance }, "Cancel requested for test data generation");
   res.json({ message: "Cancel requested. Generation will stop after the current record." });
 });
 

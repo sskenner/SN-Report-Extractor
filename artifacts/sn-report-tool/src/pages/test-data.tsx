@@ -1,6 +1,11 @@
 import { useState, useRef, useEffect } from "react";
 import { Link } from "wouter";
-import { useTestDataStatus, getTestDataStatusQueryKey } from "@workspace/api-client-react";
+import {
+  useTestDataStatus,
+  getTestDataStatusQueryKey,
+  useServicenowConfig,
+  getServicenowConfigQueryKey,
+} from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
@@ -14,6 +19,7 @@ import {
   StopCircle,
   Ban,
   ScrollText,
+  Server,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -38,6 +44,10 @@ function ProgressBar({ value, max }: { value: number; max: number }) {
 export default function TestData() {
   const queryClient = useQueryClient();
   const [count, setCount] = useState<number>(2000);
+  const [instance, setInstance] = useState<string>("");
+  const [username, setUsername] = useState<string>("");
+  const [password, setPassword] = useState<string>("");
+  const [instancePrefilled, setInstancePrefilled] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
@@ -45,6 +55,21 @@ export default function TestData() {
   const startTimeRef = useRef<number | null>(null);
   const [elapsedMs, setElapsedMs] = useState(0);
   const milestonesEndRef = useRef<HTMLDivElement>(null);
+
+  const { data: snConfig } = useServicenowConfig({
+    query: {
+      queryKey: getServicenowConfigQueryKey(),
+      retry: false,
+      staleTime: 60_000,
+    },
+  });
+
+  useEffect(() => {
+    if (!instancePrefilled && snConfig?.instance) {
+      setInstance(snConfig.instance);
+      setInstancePrefilled(true);
+    }
+  }, [snConfig, instancePrefilled]);
 
   const { data: status } = useTestDataStatus({
     query: {
@@ -78,27 +103,53 @@ export default function TestData() {
     milestonesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [status?.milestones?.length]);
 
+  const trimmedInstance = instance.trim();
+  const trimmedUsername = username.trim();
+  const wantsOverride = trimmedUsername.length > 0 || password.length > 0;
+  const overrideComplete =
+    wantsOverride && trimmedInstance.length > 0 && trimmedUsername.length > 0 && password.length > 0;
+  const overridesIncomplete = wantsOverride && !overrideComplete;
+  const overrideHttpsInvalid = overrideComplete && !/^https:\/\//i.test(trimmedInstance);
+
   const handleGenerate = async () => {
+    if (overridesIncomplete) {
+      setStartError(
+        "Provide all three of Instance URL, Username, and Password — or leave Username and Password blank to use the configured credentials."
+      );
+      return;
+    }
+    if (overrideHttpsInvalid) {
+      setStartError("Instance URL must start with https:// (e.g. https://devXXXXX.service-now.com).");
+      return;
+    }
+
     setIsStarting(true);
     setStartError(null);
     startTimeRef.current = null;
     setElapsedMs(0);
 
     try {
+      const body: Record<string, unknown> = { count };
+      if (overrideComplete) {
+        body.instance = trimmedInstance;
+        body.username = trimmedUsername;
+        body.password = password;
+      }
+
       const response = await fetch("/api/test-data/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ count }),
+        body: JSON.stringify(body),
       });
 
-      const body = await response.json();
+      const respBody = await response.json();
 
       if (!response.ok) {
-        setStartError(body.error ?? `HTTP ${response.status}`);
+        setStartError(respBody.error ?? `HTTP ${response.status}`);
         return;
       }
 
-      startTimeRef.current = body.startedAt ?? Date.now();
+      startTimeRef.current = respBody.startedAt ?? Date.now();
       setPolling(true);
       queryClient.invalidateQueries({ queryKey: getTestDataStatusQueryKey() });
     } catch (err) {
@@ -127,8 +178,10 @@ export default function TestData() {
   const isComplete = !isRunning && total > 0 && status?.completedAt != null;
   const durationMs = status?.durationMs ?? null;
   const milestones = status?.milestones ?? [];
+  const targetInstance = status?.targetInstance ?? null;
 
-  const canStart = !isRunning && !isStarting && count >= 1 && count <= 2000;
+  const canStart =
+    !isRunning && !isStarting && count >= 1 && count <= 2000 && !overridesIncomplete && !overrideHttpsInvalid;
 
   return (
     <div className="min-h-screen bg-background text-foreground p-4 sm:p-8">
@@ -190,6 +243,89 @@ export default function TestData() {
                 for its short description. Records using Resolved / Closed states may fail if your PDI
                 enforces mandatory resolution fields.
               </p>
+            </div>
+
+            <div className="space-y-3 pt-2 border-t border-border/40">
+              <div className="space-y-1">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  Target Instance & Service Account
+                </p>
+                <p className="text-xs text-muted-foreground font-mono">
+                  Leave Username and Password blank to use the configured credentials. To target a
+                  different instance or service account for this run only, fill in all three fields
+                  (https only) — credentials are sent over HTTPS and never stored.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  Instance URL
+                </label>
+                <input
+                  type="text"
+                  value={instance}
+                  onChange={(e) => setInstance(e.target.value)}
+                  disabled={isRunning}
+                  placeholder="https://devXXXXX.service-now.com"
+                  className="w-full bg-muted/40 border border-border rounded-md px-3 py-2 text-sm font-mono text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50"
+                  data-testid="input-instance"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    Username
+                  </label>
+                  <input
+                    type="text"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    disabled={isRunning}
+                    autoComplete="off"
+                    placeholder="(uses configured)"
+                    className="w-full bg-muted/40 border border-border rounded-md px-3 py-2 text-sm font-mono text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50"
+                    data-testid="input-username"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    Password
+                  </label>
+                  <input
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    disabled={isRunning}
+                    autoComplete="new-password"
+                    placeholder="(uses configured)"
+                    className="w-full bg-muted/40 border border-border rounded-md px-3 py-2 text-sm font-mono text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50"
+                    data-testid="input-password"
+                  />
+                </div>
+              </div>
+
+              {overridesIncomplete && (
+                <div
+                  className="flex items-start gap-2 text-xs text-yellow-500 bg-yellow-500/10 border border-yellow-500/20 rounded-md p-2.5 font-mono"
+                  data-testid="text-overrides-warning"
+                >
+                  <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                  <span>
+                    Provide all three of Instance URL, Username, and Password — or leave Username and
+                    Password blank to use the configured credentials.
+                  </span>
+                </div>
+              )}
+              {overrideHttpsInvalid && (
+                <div
+                  className="flex items-start gap-2 text-xs text-yellow-500 bg-yellow-500/10 border border-yellow-500/20 rounded-md p-2.5 font-mono"
+                  data-testid="text-https-warning"
+                >
+                  <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                  <span>Instance URL must start with https://</span>
+                </div>
+              )}
             </div>
 
             {startError && (
@@ -279,6 +415,16 @@ export default function TestData() {
                   </Button>
                 )}
               </CardTitle>
+              {targetInstance && (
+                <p
+                  className="text-xs font-mono text-muted-foreground flex items-center gap-1.5 pt-1"
+                  data-testid="text-target-instance"
+                >
+                  <Server className="w-3 h-3" />
+                  Target:{" "}
+                  <span className="text-foreground">{targetInstance}</span>
+                </p>
+              )}
             </CardHeader>
             <CardContent className="pt-5 space-y-5">
               <div className="space-y-2">

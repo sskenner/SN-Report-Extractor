@@ -22,4 +22,6 @@ export interface TestDataStatus {
   recentErrors: string[];
   /** Progress milestone messages (every 100 records) */
   milestones: string[];
+  /** Hostname of the ServiceNow instance the current/last run targeted */
+  targetInstance?: string | null;
 }

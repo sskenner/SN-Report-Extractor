@@ -13,4 +13,10 @@ export interface GenerateTestDataRequest {
    * @maximum 2000
    */
   count: number;
+  /** Optional ServiceNow instance URL override (e.g. https://devXXXXX.service-now.com). Must be supplied together with username and password. */
+  instance?: string;
+  /** Optional ServiceNow service-account username override. Must be supplied together with instance and password. */
+  username?: string;
+  /** Optional ServiceNow service-account password override. Must be supplied together with instance and username. Never logged or persisted. */
+  password?: string;
 }
