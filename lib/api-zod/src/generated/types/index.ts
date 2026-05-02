@@ -7,6 +7,7 @@
  */
 
 export * from "./apiError";
+export * from "./cancelTestData200";
 export * from "./createReportRequest";
 export * from "./generateTestDataRequest";
 export * from "./healthStatus";

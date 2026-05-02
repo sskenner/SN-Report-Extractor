@@ -338,6 +338,29 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/TestDataStatus"
+  /test-data/cancel:
+    post:
+      operationId: cancelTestData
+      tags: [test-data]
+      summary: Request cancellation of an in-progress generation run
+      responses:
+        "200":
+          description: Cancel acknowledged
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                required:
+                  - message
+        "409":
+          description: No generation is currently running
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
   /reports/{id}/runs/latest:
     get:
       operationId: latestReportRun
@@ -513,6 +536,10 @@ components:
           type: number
           nullable: true
           description: Unix timestamp (ms) when generation completed
+        durationMs:
+          type: number
+          nullable: true
+          description: Total duration in milliseconds (null while running)
         recentErrors:
           type: array
           items:

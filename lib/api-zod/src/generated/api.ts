@@ -185,10 +185,21 @@ export const TestDataStatusResponse = zod.object({
     .number()
     .nullish()
     .describe("Unix timestamp (ms) when generation completed"),
+  durationMs: zod
+    .number()
+    .nullish()
+    .describe("Total duration in milliseconds (null while running)"),
   recentErrors: zod.array(zod.string()),
   milestones: zod
     .array(zod.string())
     .describe("Progress milestone messages (every 100 records)"),
+});
+
+/**
+ * @summary Request cancellation of an in-progress generation run
+ */
+export const CancelTestDataResponse = zod.object({
+  message: zod.string(),
 });
 
 /**

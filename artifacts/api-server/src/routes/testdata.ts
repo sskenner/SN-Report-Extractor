@@ -5,7 +5,7 @@ const router = Router();
 
 const CATEGORIES = ["Software", "Hardware", "Network", "Inquiry / Help", "Database"];
 const PRIORITIES = ["1 - Critical", "2 - High", "3 - Moderate", "4 - Low"];
-const STATES = ["New", "In Progress", "On Hold"];
+const STATES = ["New", "In Progress", "On Hold", "Resolved", "Closed"];
 
 type GenerationState = {
   running: boolean;
@@ -42,6 +42,10 @@ function getCredentials(): { instance: string; username: string; password: strin
 }
 
 function stateSnapshot() {
+  const durationMs =
+    state.startedAt != null && state.completedAt != null
+      ? state.completedAt - state.startedAt
+      : null;
   return {
     running: state.running,
     status: state.status,
@@ -50,6 +54,7 @@ function stateSnapshot() {
     failed: state.failed,
     startedAt: state.startedAt,
     completedAt: state.completedAt,
+    durationMs,
     recentErrors: [...state.recentErrors],
     milestones: [...state.milestones],
   };

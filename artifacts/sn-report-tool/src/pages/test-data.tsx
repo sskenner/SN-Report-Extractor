@@ -125,9 +125,7 @@ export default function TestData() {
   const failed = status?.failed ?? 0;
   const isCancelled = serverStatus === "cancelled";
   const isComplete = !isRunning && total > 0 && status?.completedAt != null;
-  const durationMs = isComplete && status?.startedAt && status?.completedAt
-    ? status.completedAt - status.startedAt
-    : null;
+  const durationMs = status?.durationMs ?? null;
   const milestones = status?.milestones ?? [];
 
   const canStart = !isRunning && !isStarting && count >= 1 && count <= 2000;
@@ -188,8 +186,9 @@ export default function TestData() {
                 <span className="text-xs text-muted-foreground font-mono">min 1 / max 2000</span>
               </div>
               <p className="text-xs text-muted-foreground font-mono">
-                Cycles through 5 categories, 4 priorities, 3 states (New / In Progress / On Hold).
-                Each record uses a unique index for its short description.
+                Cycles through 5 categories, 4 priorities, 5 states. Each record uses a unique index
+                for its short description. Records using Resolved / Closed states may fail if your PDI
+                enforces mandatory resolution fields.
               </p>
             </div>
 

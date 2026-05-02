@@ -81,6 +81,8 @@ export interface TestDataStatus {
   startedAt?: number | null;
   /** Unix timestamp (ms) when generation completed */
   completedAt?: number | null;
+  /** Total duration in milliseconds (null while running) */
+  durationMs?: number | null;
   recentErrors: string[];
   /** Progress milestone messages (every 100 records) */
   milestones: string[];
@@ -97,3 +99,7 @@ export interface ReportRun {
   status: string;
   errorMessage?: string | null;
 }
+
+export type CancelTestData200 = {
+  message: string;
+};

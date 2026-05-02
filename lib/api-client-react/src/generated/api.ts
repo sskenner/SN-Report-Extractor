@@ -18,6 +18,7 @@ import type {
 
 import type {
   ApiError,
+  CancelTestData200,
   CreateReportRequest,
   GenerateTestDataRequest,
   HealthStatus,
@@ -1019,6 +1020,87 @@ export function useTestDataStatus<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Request cancellation of an in-progress generation run
+ */
+export const getCancelTestDataUrl = () => {
+  return `/api/test-data/cancel`;
+};
+
+export const cancelTestData = async (
+  options?: RequestInit,
+): Promise<CancelTestData200> => {
+  return customFetch<CancelTestData200>(getCancelTestDataUrl(), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getCancelTestDataMutationOptions = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof cancelTestData>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof cancelTestData>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationKey = ["cancelTestData"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof cancelTestData>>,
+    void
+  > = () => {
+    return cancelTestData(requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CancelTestDataMutationResult = NonNullable<
+  Awaited<ReturnType<typeof cancelTestData>>
+>;
+
+export type CancelTestDataMutationError = ErrorType<ApiError>;
+
+/**
+ * @summary Request cancellation of an in-progress generation run
+ */
+export const useCancelTestData = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof cancelTestData>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof cancelTestData>>,
+  TError,
+  void,
+  TContext
+> => {
+  return useMutation(getCancelTestDataMutationOptions(options));
+};
 
 /**
  * @summary Get the most recent run for a report
