@@ -45,14 +45,22 @@ async function runGeneration(count: number, creds: ReturnType<typeof getCredenti
   for (let i = 1; i <= count; i++) {
     if (!state.running) break;
 
-    const payload = {
+    const stateValue = STATES[i % STATES.length];
+    const isTerminal = stateValue === "Resolved" || stateValue === "Closed";
+
+    const payload: Record<string, string> = {
       short_description: `Test incident ${i} - auto generated for API testing`,
       category: CATEGORIES[i % CATEGORIES.length],
       priority: PRIORITIES[i % PRIORITIES.length],
-      state: STATES[i % STATES.length],
+      state: stateValue,
       caller_id: "admin",
       description: `This is test record number ${i} created for pagination testing.`,
     };
+
+    if (isTerminal) {
+      payload.close_code = "Solved (Permanently)";
+      payload.close_notes = "Resolved during automated test data generation.";
+    }
 
     try {
       const response = await fetch(url, {
