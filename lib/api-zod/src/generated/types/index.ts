@@ -8,10 +8,12 @@
 
 export * from "./apiError";
 export * from "./createReportRequest";
+export * from "./generateTestDataRequest";
 export * from "./healthStatus";
 export * from "./pingResult";
 export * from "./reportConfig";
 export * from "./reportRun";
 export * from "./runReportRequest";
 export * from "./servicenowConfig";
+export * from "./testDataStatus";
 export * from "./updateReportRequest";

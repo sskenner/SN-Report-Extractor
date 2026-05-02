@@ -14,6 +14,8 @@ tags:
     description: ServiceNow connectivity operations
   - name: reports
     description: Report configuration management
+  - name: test-data
+    description: Test data generation
 paths:
   /healthz:
     get:
@@ -288,6 +290,54 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiError"
+  /test-data/generate:
+    post:
+      operationId: generateTestData
+      tags: [test-data]
+      summary: Start generating synthetic incident records in ServiceNow
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenerateTestDataRequest"
+      responses:
+        "202":
+          description: Generation started (or already running)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TestDataStatus"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "409":
+          description: Generation already in progress
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /test-data/status:
+    get:
+      operationId: testDataStatus
+      tags: [test-data]
+      summary: Poll current test data generation progress
+      responses:
+        "200":
+          description: Current generation state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TestDataStatus"
   /reports/{id}/runs/latest:
     get:
       operationId: latestReportRun
@@ -431,6 +481,45 @@ components:
         filter:
           type: string
           description: Optional filter override; uses saved filterQuery if omitted
+    GenerateTestDataRequest:
+      type: object
+      properties:
+        count:
+          type: integer
+          minimum: 1
+          maximum: 2000
+          description: Number of incidents to create
+      required:
+        - count
+    TestDataStatus:
+      type: object
+      properties:
+        running:
+          type: boolean
+        total:
+          type: integer
+        created:
+          type: integer
+        failed:
+          type: integer
+        startedAt:
+          type: number
+          nullable: true
+          description: Unix timestamp (ms) when generation started
+        completedAt:
+          type: number
+          nullable: true
+          description: Unix timestamp (ms) when generation completed
+        recentErrors:
+          type: array
+          items:
+            type: string
+      required:
+        - running
+        - total
+        - created
+        - failed
+        - recentErrors
     ReportRun:
       type: object
       properties:

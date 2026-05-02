@@ -156,6 +156,38 @@ export const ListReportRunsResponseItem = zod.object({
 export const ListReportRunsResponse = zod.array(ListReportRunsResponseItem);
 
 /**
+ * @summary Start generating synthetic incident records in ServiceNow
+ */
+export const generateTestDataBodyCountMax = 2000;
+
+export const GenerateTestDataBody = zod.object({
+  count: zod
+    .number()
+    .min(1)
+    .max(generateTestDataBodyCountMax)
+    .describe("Number of incidents to create"),
+});
+
+/**
+ * @summary Poll current test data generation progress
+ */
+export const TestDataStatusResponse = zod.object({
+  running: zod.boolean(),
+  total: zod.number(),
+  created: zod.number(),
+  failed: zod.number(),
+  startedAt: zod
+    .number()
+    .nullish()
+    .describe("Unix timestamp (ms) when generation started"),
+  completedAt: zod
+    .number()
+    .nullish()
+    .describe("Unix timestamp (ms) when generation completed"),
+  recentErrors: zod.array(zod.string()),
+});
+
+/**
  * @summary Get the most recent run for a report
  */
 export const LatestReportRunParams = zod.object({

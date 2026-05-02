@@ -7,7 +7,7 @@ import {
 } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Server, Activity, CheckCircle2, XCircle, Globe, AlertTriangle, FileText } from "lucide-react";
+import { Server, Activity, CheckCircle2, XCircle, Globe, AlertTriangle, FileText, FlaskConical } from "lucide-react";
 import { motion } from "framer-motion";
 import { Spinner } from "@/components/ui/spinner";
 
@@ -60,11 +60,17 @@ export default function Home() {
           </p>
         </div>
 
-        <div className="flex justify-center">
+        <div className="flex justify-center gap-3">
           <Link href="/reports">
             <Button variant="outline" size="sm" data-testid="button-nav-reports">
               <FileText className="w-4 h-4 mr-2" />
               Report Configurations
+            </Button>
+          </Link>
+          <Link href="/test-data">
+            <Button variant="outline" size="sm" data-testid="button-nav-test-data">
+              <FlaskConical className="w-4 h-4 mr-2" />
+              Test Data Generator
             </Button>
           </Link>
         </div>

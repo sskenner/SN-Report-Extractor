@@ -61,6 +61,27 @@ export interface RunReportRequest {
   filter?: string;
 }
 
+export interface GenerateTestDataRequest {
+  /**
+   * Number of incidents to create
+   * @minimum 1
+   * @maximum 2000
+   */
+  count: number;
+}
+
+export interface TestDataStatus {
+  running: boolean;
+  total: number;
+  created: number;
+  failed: number;
+  /** Unix timestamp (ms) when generation started */
+  startedAt?: number | null;
+  /** Unix timestamp (ms) when generation completed */
+  completedAt?: number | null;
+  recentErrors: string[];
+}
+
 export interface ReportRun {
   id: number;
   reportConfigId: number;

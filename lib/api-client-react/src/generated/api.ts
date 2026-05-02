@@ -19,12 +19,14 @@ import type {
 import type {
   ApiError,
   CreateReportRequest,
+  GenerateTestDataRequest,
   HealthStatus,
   PingResult,
   ReportConfig,
   ReportRun,
   RunReportRequest,
   ServicenowConfig,
+  TestDataStatus,
   UpdateReportRequest,
 } from "./api.schemas";
 
@@ -849,6 +851,167 @@ export function useListReportRuns<
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getListReportRunsQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Start generating synthetic incident records in ServiceNow
+ */
+export const getGenerateTestDataUrl = () => {
+  return `/api/test-data/generate`;
+};
+
+export const generateTestData = async (
+  generateTestDataRequest: GenerateTestDataRequest,
+  options?: RequestInit,
+): Promise<TestDataStatus> => {
+  return customFetch<TestDataStatus>(getGenerateTestDataUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(generateTestDataRequest),
+  });
+};
+
+export const getGenerateTestDataMutationOptions = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof generateTestData>>,
+    TError,
+    { data: BodyType<GenerateTestDataRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof generateTestData>>,
+  TError,
+  { data: BodyType<GenerateTestDataRequest> },
+  TContext
+> => {
+  const mutationKey = ["generateTestData"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof generateTestData>>,
+    { data: BodyType<GenerateTestDataRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return generateTestData(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type GenerateTestDataMutationResult = NonNullable<
+  Awaited<ReturnType<typeof generateTestData>>
+>;
+export type GenerateTestDataMutationBody = BodyType<GenerateTestDataRequest>;
+export type GenerateTestDataMutationError = ErrorType<ApiError>;
+
+/**
+ * @summary Start generating synthetic incident records in ServiceNow
+ */
+export const useGenerateTestData = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof generateTestData>>,
+    TError,
+    { data: BodyType<GenerateTestDataRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof generateTestData>>,
+  TError,
+  { data: BodyType<GenerateTestDataRequest> },
+  TContext
+> => {
+  return useMutation(getGenerateTestDataMutationOptions(options));
+};
+
+/**
+ * @summary Poll current test data generation progress
+ */
+export const getTestDataStatusUrl = () => {
+  return `/api/test-data/status`;
+};
+
+export const testDataStatus = async (
+  options?: RequestInit,
+): Promise<TestDataStatus> => {
+  return customFetch<TestDataStatus>(getTestDataStatusUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getTestDataStatusQueryKey = () => {
+  return [`/api/test-data/status`] as const;
+};
+
+export const getTestDataStatusQueryOptions = <
+  TData = Awaited<ReturnType<typeof testDataStatus>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof testDataStatus>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getTestDataStatusQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof testDataStatus>>> = ({
+    signal,
+  }) => testDataStatus({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof testDataStatus>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type TestDataStatusQueryResult = NonNullable<
+  Awaited<ReturnType<typeof testDataStatus>>
+>;
+export type TestDataStatusQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Poll current test data generation progress
+ */
+
+export function useTestDataStatus<
+  TData = Awaited<ReturnType<typeof testDataStatus>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof testDataStatus>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getTestDataStatusQueryOptions(options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

@@ -71,6 +71,14 @@ React + Vite SPA (`@workspace/sn-report-tool`) + Express API server (`@workspace
 - `GET /api/reports/:id/runs`
 - `GET /api/reports/:id/runs/latest`
 
+#### Test Data Generator (`/test-data`)
+- Count input (1–2000, default 2000) with prominent warning about live PDI
+- Async generation: POST /api/test-data/generate returns 202, runs in background
+- Frontend polls GET /api/test-data/status every 1s while running
+- Progress bar + live elapsed timer + 3-column summary (Created / Failed / Duration)
+- Per-record failures logged but don't abort the run (matches Python script behavior)
+- Falls back from SN_ADMIN_USERNAME/SN_ADMIN_PASSWORD to SN_USERNAME/SN_PASSWORD
+
 ### Environment Secrets Required
 - `SN_INSTANCE` — ServiceNow instance URL (e.g. `https://dev12345.service-now.com`)
 - `SN_USERNAME` — API user
