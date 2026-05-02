@@ -41,6 +41,7 @@ export const reportRunsTable = pgTable("report_runs", {
   recordCount: integer("record_count").notNull().default(0),
   status: text("status").notNull().default("running"),
   errorMessage: text("error_message"),
+  targetInstance: text("target_instance"),
 });
 
 export type ReportRun = typeof reportRunsTable.$inferSelect;

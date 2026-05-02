@@ -504,6 +504,16 @@ components:
         filter:
           type: string
           description: Optional filter override; uses saved filterQuery if omitted
+        instance:
+          type: string
+          description: Optional ServiceNow instance URL override (e.g. https://devXXXXX.service-now.com). Must be supplied together with username and password.
+        username:
+          type: string
+          description: Optional ServiceNow username override. Must be supplied together with instance and password.
+        password:
+          type: string
+          format: password
+          description: Optional ServiceNow password override. Must be supplied together with instance and username. Never logged or persisted.
     GenerateTestDataRequest:
       type: object
       properties:
@@ -595,6 +605,10 @@ components:
         errorMessage:
           type: string
           nullable: true
+        targetInstance:
+          type: string
+          nullable: true
+          description: Hostname of the ServiceNow instance this run targeted
       required:
         - id
         - reportConfigId

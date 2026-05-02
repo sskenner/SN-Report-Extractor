@@ -2,6 +2,7 @@ import { Router } from "express";
 import { eq, desc } from "drizzle-orm";
 import { db, reportConfigsTable, reportRunsTable } from "@workspace/db";
 import { logger } from "../lib/logger";
+import { resolveCredentialsFromBody } from "../lib/sn-creds";
 
 const router = Router();
 
@@ -57,16 +58,13 @@ router.post("/reports/:id/run", async (req, res) => {
     return;
   }
 
-  const instance = process.env.SN_INSTANCE;
-  const username = process.env.SN_USERNAME;
-  const password = process.env.SN_PASSWORD;
-
-  if (!instance || !username || !password) {
-    res.status(500).json({
-      error: "ServiceNow credentials are not configured. Set SN_INSTANCE, SN_USERNAME, and SN_PASSWORD.",
-    });
+  const resolved = resolveCredentialsFromBody(req.body);
+  if (!resolved.ok) {
+    res.status(resolved.status).json({ error: resolved.error });
     return;
   }
+  const { creds, host, usingOverride } = resolved;
+  const { instance, username, password } = creds;
 
   const filterOverride = typeof req.body?.filter === "string" ? req.body.filter : undefined;
   const filterQuery = filterOverride ?? report.filterQuery;
@@ -81,10 +79,14 @@ router.post("/reports/:id/run", async (req, res) => {
       reportName: report.name,
       status: "running",
       recordCount: 0,
+      targetInstance: host,
     })
     .returning();
 
-  logger.info({ runId: run.id, report: report.name, table, filter: filterQuery }, "Starting report run");
+  logger.info(
+    { runId: run.id, report: report.name, table, filter: filterQuery, instance: host, usingOverride },
+    "Starting report run"
+  );
 
   const allRecords: Record<string, unknown>[] = [];
   const limit = 100;

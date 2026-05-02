@@ -8,9 +8,11 @@ import {
   useVerifyReport,
   useListReportRuns,
   useLatestReportRun,
+  useServicenowConfig,
   getListReportsQueryKey,
   getListReportRunsQueryKey,
   getLatestReportRunQueryKey,
+  getServicenowConfigQueryKey,
 } from "@workspace/api-client-react";
 import type { ReportConfig, ReportRun } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -32,6 +34,7 @@ import {
   Clock,
   AlertTriangle,
   History,
+  Server,
 } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -88,6 +91,16 @@ function RunHistoryList({ runs }: { runs: ReportRun[] }) {
               {fmtDuration(run.startedAt, run.completedAt)}
             </span>
           )}
+          {run.targetInstance && (
+            <span
+              className="text-muted-foreground flex items-center gap-1"
+              title={`Targeted ${run.targetInstance}`}
+              data-testid={`run-target-${run.id}`}
+            >
+              <Server className="w-3 h-3" />
+              {run.targetInstance}
+            </span>
+          )}
           {run.status === "error" && run.errorMessage && (
             <span className="text-destructive truncate max-w-xs" title={run.errorMessage}>
               {run.errorMessage.slice(0, 80)}
@@ -105,9 +118,41 @@ function RunPanel({ report }: { report: ReportConfig }) {
   const [runLog, setRunLog] = useState<string[]>([]);
   const [lastError, setLastError] = useState<string | null>(null);
   const [showHistory, setShowHistory] = useState(false);
+  const [showOverrides, setShowOverrides] = useState(false);
+  const [instance, setInstance] = useState("");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [prefilledInstance, setPrefilledInstance] = useState("");
   const logRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
   const startTimeRef = useRef<number>(0);
+
+  const { data: snConfig } = useServicenowConfig({
+    query: {
+      queryKey: getServicenowConfigQueryKey(),
+      retry: false,
+      staleTime: 60_000,
+    },
+  });
+
+  useEffect(() => {
+    if (!prefilledInstance && snConfig?.instance) {
+      setPrefilledInstance(snConfig.instance);
+      setInstance((cur) => (cur === "" ? snConfig.instance : cur));
+    }
+  }, [snConfig, prefilledInstance]);
+
+  const trimmedInstance = instance.trim();
+  const trimmedUsername = username.trim();
+  const instanceMatchesPrefill = prefilledInstance !== "" && trimmedInstance === prefilledInstance;
+  const wantsOverride =
+    trimmedUsername.length > 0 ||
+    password.length > 0 ||
+    (trimmedInstance.length > 0 && !instanceMatchesPrefill);
+  const overrideComplete =
+    wantsOverride && trimmedInstance.length > 0 && trimmedUsername.length > 0 && password.length > 0;
+  const overridesIncomplete = wantsOverride && !overrideComplete;
+  const overrideHttpsInvalid = overrideComplete && !/^https:\/\//i.test(trimmedInstance);
 
   const { data: latestRun } = useLatestReportRun(report.id, {
     query: {
@@ -155,6 +200,16 @@ function RunPanel({ report }: { report: ReportConfig }) {
 
   const handleRun = useCallback(async () => {
     if (!report.verifiedTable) return;
+    if (overridesIncomplete) {
+      setLastError(
+        "Provide all three of Instance URL, Username, and Password — or revert Instance URL to the configured value and leave Username and Password blank."
+      );
+      return;
+    }
+    if (overrideHttpsInvalid) {
+      setLastError("Instance URL must start with https:// (e.g. https://devXXXXX.service-now.com).");
+      return;
+    }
 
     setIsRunning(true);
     setRunLog([]);
@@ -166,13 +221,21 @@ function RunPanel({ report }: { report: ReportConfig }) {
 
     addLog(`▶ Starting run: ${report.name}`);
     addLog(`  Table: ${report.verifiedTable}`);
+    if (overrideComplete) addLog(`  Target: ${trimmedInstance} (override)`);
     if (report.filterQuery) addLog(`  Filter: ${report.filterQuery.slice(0, 80)}${report.filterQuery.length > 80 ? "…" : ""}`);
     addLog(`  Fetching pages (100 records each, 60s timeout per page)…`);
 
     try {
+      const body: Record<string, unknown> = {};
+      if (overrideComplete) {
+        body.instance = trimmedInstance;
+        body.username = trimmedUsername;
+        body.password = password;
+      }
       const response = await fetch(`/api/reports/${report.id}/run`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
         signal: controller.signal,
       });
 
@@ -221,13 +284,28 @@ function RunPanel({ report }: { report: ReportConfig }) {
       setIsRunning(false);
       abortRef.current = null;
     }
-  }, [report, addLog, latestRun, queryClient, showHistory, refetchRuns]);
+  }, [
+    report,
+    addLog,
+    latestRun,
+    queryClient,
+    showHistory,
+    refetchRuns,
+    overrideComplete,
+    overridesIncomplete,
+    overrideHttpsInvalid,
+    trimmedInstance,
+    trimmedUsername,
+    password,
+  ]);
 
   const handleCancel = () => {
     abortRef.current?.abort();
   };
 
-  const canRun = !!report.verifiedTable && !isRunning;
+  const canRun = !!report.verifiedTable && !isRunning && !overridesIncomplete && !overrideHttpsInvalid;
+  const inputCls =
+    "w-full bg-muted/40 border border-border rounded-md px-2.5 py-1.5 text-xs font-mono text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50";
 
   return (
     <div className="space-y-3">
@@ -269,6 +347,14 @@ function RunPanel({ report }: { report: ReportConfig }) {
         )}
         <button
           className="ml-auto flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors font-mono"
+          onClick={() => setShowOverrides((v) => !v)}
+          data-testid={`button-toggle-overrides-${report.id}`}
+        >
+          <Server className="w-3 h-3" />
+          {showOverrides ? "Hide target" : wantsOverride ? "Target (override)" : "Target"}
+        </button>
+        <button
+          className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors font-mono"
           onClick={() => {
             setShowHistory((v) => !v);
             if (!showHistory) refetchRuns();
@@ -279,6 +365,87 @@ function RunPanel({ report }: { report: ReportConfig }) {
           {showHistory ? "Hide history" : "Show history"}
         </button>
       </div>
+
+      {showOverrides && (
+        <div
+          className="border border-border/40 rounded-md p-3 space-y-3 bg-muted/10"
+          data-testid={`overrides-panel-${report.id}`}
+        >
+          <p className="text-xs text-muted-foreground font-mono">
+            Keep the pre-filled Instance URL and leave Username + Password blank to use the
+            configured credentials. To target a different instance or service account for this
+            run only, fill in all three fields (https only, *.service-now.com) — credentials
+            are sent over HTTPS and never stored.
+          </p>
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+              Instance URL
+            </label>
+            <input
+              type="text"
+              value={instance}
+              onChange={(e) => setInstance(e.target.value)}
+              disabled={isRunning}
+              placeholder="https://devXXXXX.service-now.com"
+              className={inputCls}
+              data-testid={`input-run-instance-${report.id}`}
+            />
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                Username
+              </label>
+              <input
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                disabled={isRunning}
+                autoComplete="off"
+                placeholder="(uses configured)"
+                className={inputCls}
+                data-testid={`input-run-username-${report.id}`}
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                Password
+              </label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                disabled={isRunning}
+                autoComplete="new-password"
+                placeholder="(uses configured)"
+                className={inputCls}
+                data-testid={`input-run-password-${report.id}`}
+              />
+            </div>
+          </div>
+          {overridesIncomplete && (
+            <div
+              className="flex items-start gap-2 text-xs text-yellow-500 bg-yellow-500/10 border border-yellow-500/20 rounded-md p-2 font-mono"
+              data-testid={`run-overrides-warning-${report.id}`}
+            >
+              <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+              <span>
+                Provide all three of Instance URL, Username, and Password — or revert Instance
+                URL to the pre-filled value and leave Username and Password blank.
+              </span>
+            </div>
+          )}
+          {overrideHttpsInvalid && (
+            <div
+              className="flex items-start gap-2 text-xs text-yellow-500 bg-yellow-500/10 border border-yellow-500/20 rounded-md p-2 font-mono"
+              data-testid={`run-https-warning-${report.id}`}
+            >
+              <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+              <span>Instance URL must start with https://</span>
+            </div>
+          )}
+        </div>
+      )}
 
       {runLog.length > 0 && (
         <div

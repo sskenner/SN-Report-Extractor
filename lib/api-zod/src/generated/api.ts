@@ -134,6 +134,24 @@ export const RunReportBody = zod.object({
     .string()
     .optional()
     .describe("Optional filter override; uses saved filterQuery if omitted"),
+  instance: zod
+    .string()
+    .optional()
+    .describe(
+      "Optional ServiceNow instance URL override (e.g. https:\/\/devXXXXX.service-now.com). Must be supplied together with username and password.",
+    ),
+  username: zod
+    .string()
+    .optional()
+    .describe(
+      "Optional ServiceNow username override. Must be supplied together with instance and password.",
+    ),
+  password: zod
+    .string()
+    .optional()
+    .describe(
+      "Optional ServiceNow password override. Must be supplied together with instance and username. Never logged or persisted.",
+    ),
 });
 
 /**
@@ -152,6 +170,10 @@ export const ListReportRunsResponseItem = zod.object({
   recordCount: zod.number(),
   status: zod.string().describe("running | success | error"),
   errorMessage: zod.string().nullish(),
+  targetInstance: zod
+    .string()
+    .nullish()
+    .describe("Hostname of the ServiceNow instance this run targeted"),
 });
 export const ListReportRunsResponse = zod.array(ListReportRunsResponseItem);
 
@@ -242,4 +264,8 @@ export const LatestReportRunResponse = zod.object({
   recordCount: zod.number(),
   status: zod.string().describe("running | success | error"),
   errorMessage: zod.string().nullish(),
+  targetInstance: zod
+    .string()
+    .nullish()
+    .describe("Hostname of the ServiceNow instance this run targeted"),
 });

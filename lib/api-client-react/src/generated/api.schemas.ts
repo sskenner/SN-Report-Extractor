@@ -59,6 +59,12 @@ export interface UpdateReportRequest {
 export interface RunReportRequest {
   /** Optional filter override; uses saved filterQuery if omitted */
   filter?: string;
+  /** Optional ServiceNow instance URL override (e.g. https://devXXXXX.service-now.com). Must be supplied together with username and password. */
+  instance?: string;
+  /** Optional ServiceNow username override. Must be supplied together with instance and password. */
+  username?: string;
+  /** Optional ServiceNow password override. Must be supplied together with instance and username. Never logged or persisted. */
+  password?: string;
 }
 
 export interface GenerateTestDataRequest {
@@ -106,6 +112,8 @@ export interface ReportRun {
   /** running | success | error */
   status: string;
   errorMessage?: string | null;
+  /** Hostname of the ServiceNow instance this run targeted */
+  targetInstance?: string | null;
 }
 
 export type CancelTestData200 = {

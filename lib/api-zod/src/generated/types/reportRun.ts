@@ -16,4 +16,6 @@ export interface ReportRun {
   /** running | success | error */
   status: string;
   errorMessage?: string | null;
+  /** Hostname of the ServiceNow instance this run targeted */
+  targetInstance?: string | null;
 }
