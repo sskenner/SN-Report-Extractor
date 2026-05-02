@@ -173,6 +173,7 @@ export const GenerateTestDataBody = zod.object({
  */
 export const TestDataStatusResponse = zod.object({
   running: zod.boolean(),
+  status: zod.string().describe("idle | running | completed | cancelled"),
   total: zod.number(),
   created: zod.number(),
   failed: zod.number(),
@@ -185,6 +186,9 @@ export const TestDataStatusResponse = zod.object({
     .nullish()
     .describe("Unix timestamp (ms) when generation completed"),
   recentErrors: zod.array(zod.string()),
+  milestones: zod
+    .array(zod.string())
+    .describe("Progress milestone messages (every 100 records)"),
 });
 
 /**

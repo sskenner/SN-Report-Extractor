@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { Link } from "wouter";
-import { useTestDataStatus } from "@workspace/api-client-react";
-import { getTestDataStatusQueryKey } from "@workspace/api-client-react";
+import { useTestDataStatus, getTestDataStatusQueryKey } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
@@ -14,6 +13,7 @@ import {
   Play,
   StopCircle,
   Ban,
+  ScrollText,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -44,6 +44,7 @@ export default function TestData() {
   const [polling, setPolling] = useState(false);
   const startTimeRef = useRef<number | null>(null);
   const [elapsedMs, setElapsedMs] = useState(0);
+  const milestonesEndRef = useRef<HTMLDivElement>(null);
 
   const { data: status } = useTestDataStatus({
     query: {
@@ -72,6 +73,10 @@ export default function TestData() {
     }, 500);
     return () => clearInterval(timer);
   }, [polling]);
+
+  useEffect(() => {
+    milestonesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [status?.milestones?.length]);
 
   const handleGenerate = async () => {
     setIsStarting(true);
@@ -114,7 +119,7 @@ export default function TestData() {
   };
 
   const isRunning = status?.running ?? false;
-  const serverStatus = (status as { status?: string } | undefined)?.status;
+  const serverStatus = status?.status;
   const total = status?.total ?? 0;
   const created = status?.created ?? 0;
   const failed = status?.failed ?? 0;
@@ -123,6 +128,7 @@ export default function TestData() {
   const durationMs = isComplete && status?.startedAt && status?.completedAt
     ? status.completedAt - status.startedAt
     : null;
+  const milestones = status?.milestones ?? [];
 
   const canStart = !isRunning && !isStarting && count >= 1 && count <= 2000;
 
@@ -182,7 +188,7 @@ export default function TestData() {
                 <span className="text-xs text-muted-foreground font-mono">min 1 / max 2000</span>
               </div>
               <p className="text-xs text-muted-foreground font-mono">
-                Cycles through 5 categories, 4 priorities, 5 states.
+                Cycles through 5 categories, 4 priorities, 3 states (New / In Progress / On Hold).
                 Each record uses a unique index for its short description.
               </p>
             </div>
@@ -319,6 +325,21 @@ export default function TestData() {
                   </p>
                 </div>
               </div>
+
+              {milestones.length > 0 && (
+                <div data-testid="container-milestones">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                    <ScrollText className="w-3.5 h-3.5" />
+                    Progress Log
+                  </p>
+                  <div className="bg-black/40 border border-border rounded-md p-3 max-h-36 overflow-y-auto space-y-0.5 font-mono text-xs text-muted-foreground">
+                    {milestones.map((m, i) => (
+                      <div key={i} className="text-primary/80">{m}</div>
+                    ))}
+                    <div ref={milestonesEndRef} />
+                  </div>
+                </div>
+              )}
 
               {status?.recentErrors && status.recentErrors.length > 0 && (
                 <div data-testid="container-errors">

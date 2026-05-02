@@ -496,6 +496,9 @@ components:
       properties:
         running:
           type: boolean
+        status:
+          type: string
+          description: "idle | running | completed | cancelled"
         total:
           type: integer
         created:
@@ -514,12 +517,19 @@ components:
           type: array
           items:
             type: string
+        milestones:
+          type: array
+          items:
+            type: string
+          description: Progress milestone messages (every 100 records)
       required:
         - running
+        - status
         - total
         - created
         - failed
         - recentErrors
+        - milestones
     ReportRun:
       type: object
       properties:

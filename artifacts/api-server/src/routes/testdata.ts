@@ -17,6 +17,7 @@ type GenerationState = {
   startedAt: number | null;
   completedAt: number | null;
   recentErrors: string[];
+  milestones: string[];
 };
 
 const state: GenerationState = {
@@ -29,6 +30,7 @@ const state: GenerationState = {
   startedAt: null,
   completedAt: null,
   recentErrors: [],
+  milestones: [],
 };
 
 function getCredentials(): { instance: string; username: string; password: string } | null {
@@ -39,12 +41,26 @@ function getCredentials(): { instance: string; username: string; password: strin
   return { instance, username, password };
 }
 
+function stateSnapshot() {
+  return {
+    running: state.running,
+    status: state.status,
+    total: state.total,
+    created: state.created,
+    failed: state.failed,
+    startedAt: state.startedAt,
+    completedAt: state.completedAt,
+    recentErrors: [...state.recentErrors],
+    milestones: [...state.milestones],
+  };
+}
+
 async function runGeneration(count: number, creds: ReturnType<typeof getCredentials>): Promise<void> {
   if (!creds) return;
 
   const { instance, username, password } = creds;
   const basicAuth = Buffer.from(`${username}:${password}`).toString("base64");
-  const url = `${instance}/api/now/table/incident?sysparm_input_display_value=true`;
+  const url = `${instance}/api/now/table/incident`;
 
   for (let i = 1; i <= count; i++) {
     if (!state.running || state.cancelRequested) break;
@@ -79,6 +95,8 @@ async function runGeneration(count: number, creds: ReturnType<typeof getCredenti
 
       if (state.created % 100 === 0) {
         const elapsed = ((Date.now() - (state.startedAt ?? Date.now())) / 1000).toFixed(1);
+        const msg = `Created ${state.created} / ${count} records — ${elapsed}s elapsed`;
+        state.milestones.push(msg);
         logger.info({ created: state.created, total: count, elapsed: `${elapsed}s` }, "Test data progress");
       }
     } catch (err) {
@@ -97,6 +115,10 @@ async function runGeneration(count: number, creds: ReturnType<typeof getCredenti
   state.completedAt = Date.now();
   state.status = wasCancelled ? "cancelled" : "completed";
   const elapsed = ((state.completedAt - (state.startedAt ?? state.completedAt)) / 1000).toFixed(1);
+  const doneMsg = wasCancelled
+    ? `Cancelled — ${state.created} / ${state.total} records created in ${elapsed}s`
+    : `Done — ${state.created} / ${state.total} records created in ${elapsed}s`;
+  state.milestones.push(doneMsg);
   logger.info(
     { created: state.created, failed: state.failed, elapsed: `${elapsed}s`, cancelled: wasCancelled },
     wasCancelled ? "Test data generation cancelled" : "Test data generation complete"
@@ -134,6 +156,7 @@ router.post("/test-data/generate", async (req, res) => {
   state.startedAt = Date.now();
   state.completedAt = null;
   state.recentErrors = [];
+  state.milestones = [];
 
   logger.info({ count, instance: creds.instance }, "Starting test data generation");
 
@@ -145,16 +168,7 @@ router.post("/test-data/generate", async (req, res) => {
     state.completedAt = Date.now();
   });
 
-  res.status(202).json({
-    running: state.running,
-    status: state.status,
-    total: state.total,
-    created: state.created,
-    failed: state.failed,
-    startedAt: state.startedAt,
-    completedAt: state.completedAt,
-    recentErrors: state.recentErrors,
-  });
+  res.status(202).json(stateSnapshot());
 });
 
 router.post("/test-data/cancel", (_req, res) => {
@@ -168,16 +182,7 @@ router.post("/test-data/cancel", (_req, res) => {
 });
 
 router.get("/test-data/status", (_req, res) => {
-  res.json({
-    running: state.running,
-    status: state.status,
-    total: state.total,
-    created: state.created,
-    failed: state.failed,
-    startedAt: state.startedAt,
-    completedAt: state.completedAt,
-    recentErrors: state.recentErrors,
-  });
+  res.json(stateSnapshot());
 });
 
 export default router;

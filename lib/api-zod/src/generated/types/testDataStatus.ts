@@ -8,6 +8,8 @@
 
 export interface TestDataStatus {
   running: boolean;
+  /** idle | running | completed | cancelled */
+  status: string;
   total: number;
   created: number;
   failed: number;
@@ -16,4 +18,6 @@ export interface TestDataStatus {
   /** Unix timestamp (ms) when generation completed */
   completedAt?: number | null;
   recentErrors: string[];
+  /** Progress milestone messages (every 100 records) */
+  milestones: string[];
 }
