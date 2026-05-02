@@ -108,8 +108,9 @@ async function runGeneration(count: number, creds: ReturnType<typeof getCredenti
       state.failed++;
       const msg = err instanceof Error ? err.message : String(err);
       logger.warn({ i, err: msg }, "Failed to create test incident");
-      if (state.recentErrors.length < 20) {
-        state.recentErrors.push(`Record ${i}: ${msg}`);
+      state.recentErrors.push(`Record ${i}: ${msg}`);
+      if (state.recentErrors.length > 20) {
+        state.recentErrors.shift();
       }
     }
   }

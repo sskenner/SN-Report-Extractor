@@ -294,7 +294,7 @@ export default function TestData() {
                       : ""}
                   </span>
                 </div>
-                <ProgressBar value={created} max={total} />
+                <ProgressBar value={created + failed} max={total} />
               </div>
 
               <div
