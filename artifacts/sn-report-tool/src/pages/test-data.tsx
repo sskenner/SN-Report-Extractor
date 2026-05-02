@@ -13,6 +13,7 @@ import {
   XCircle,
   Play,
   StopCircle,
+  Ban,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -38,6 +39,7 @@ export default function TestData() {
   const queryClient = useQueryClient();
   const [count, setCount] = useState<number>(2000);
   const [isStarting, setIsStarting] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
   const [polling, setPolling] = useState(false);
   const startTimeRef = useRef<number | null>(null);
@@ -57,6 +59,7 @@ export default function TestData() {
       if (!startTimeRef.current) startTimeRef.current = status.startedAt ?? Date.now();
     } else if (status && !status.running && polling) {
       setPolling(false);
+      setIsCancelling(false);
     }
   }, [status, polling]);
 
@@ -100,10 +103,22 @@ export default function TestData() {
     }
   };
 
+  const handleCancel = async () => {
+    setIsCancelling(true);
+    try {
+      await fetch("/api/test-data/cancel", { method: "POST" });
+      queryClient.invalidateQueries({ queryKey: getTestDataStatusQueryKey() });
+    } catch {
+      setIsCancelling(false);
+    }
+  };
+
   const isRunning = status?.running ?? false;
+  const serverStatus = (status as { status?: string } | undefined)?.status;
   const total = status?.total ?? 0;
   const created = status?.created ?? 0;
   const failed = status?.failed ?? 0;
+  const isCancelled = serverStatus === "cancelled";
   const isComplete = !isRunning && total > 0 && status?.completedAt != null;
   const durationMs = isComplete && status?.startedAt && status?.completedAt
     ? status.completedAt - status.startedAt
@@ -206,26 +221,57 @@ export default function TestData() {
         {(isRunning || isComplete || total > 0) && (
           <Card className="border-border bg-card/50" data-testid="card-progress">
             <CardHeader className="border-b border-border/50 pb-4">
-              <CardTitle className="text-base flex items-center gap-2">
-                {isRunning ? (
-                  <>
-                    <Spinner className="w-4 h-4" />
-                    <span className="text-yellow-500">Generating…</span>
-                  </>
-                ) : isComplete ? (
-                  failed === 0 ? (
+              <CardTitle className="text-base flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  {isRunning ? (
                     <>
-                      <CheckCircle2 className="w-4 h-4 text-green-500" />
-                      <span className="text-green-500">Complete</span>
+                      <Spinner className="w-4 h-4" />
+                      <span className="text-yellow-500">
+                        {isCancelling ? "Cancelling…" : "Generating…"}
+                      </span>
                     </>
+                  ) : isCancelled ? (
+                    <>
+                      <Ban className="w-4 h-4 text-orange-500" />
+                      <span className="text-orange-500">Cancelled</span>
+                    </>
+                  ) : isComplete ? (
+                    failed === 0 ? (
+                      <>
+                        <CheckCircle2 className="w-4 h-4 text-green-500" />
+                        <span className="text-green-500">Complete</span>
+                      </>
+                    ) : (
+                      <>
+                        <AlertTriangle className="w-4 h-4 text-yellow-500" />
+                        <span className="text-yellow-500">Complete with errors</span>
+                      </>
+                    )
                   ) : (
-                    <>
-                      <AlertTriangle className="w-4 h-4 text-yellow-500" />
-                      <span className="text-yellow-500">Complete with errors</span>
-                    </>
-                  )
-                ) : (
-                  <StopCircle className="w-4 h-4 text-muted-foreground" />
+                    <StopCircle className="w-4 h-4 text-muted-foreground" />
+                  )}
+                </div>
+
+                {isRunning && (
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={handleCancel}
+                    disabled={isCancelling}
+                    data-testid="button-cancel"
+                  >
+                    {isCancelling ? (
+                      <>
+                        <Spinner className="w-3.5 h-3.5 mr-1.5" />
+                        Cancelling…
+                      </>
+                    ) : (
+                      <>
+                        <Ban className="w-3.5 h-3.5 mr-1.5" />
+                        Cancel
+                      </>
+                    )}
+                  </Button>
                 )}
               </CardTitle>
             </CardHeader>

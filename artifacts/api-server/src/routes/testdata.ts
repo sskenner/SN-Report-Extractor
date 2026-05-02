@@ -9,6 +9,8 @@ const STATES = ["New", "In Progress", "On Hold", "Resolved", "Closed"];
 
 type GenerationState = {
   running: boolean;
+  cancelRequested: boolean;
+  status: "idle" | "running" | "completed" | "cancelled";
   total: number;
   created: number;
   failed: number;
@@ -19,6 +21,8 @@ type GenerationState = {
 
 const state: GenerationState = {
   running: false,
+  cancelRequested: false,
+  status: "idle",
   total: 0,
   created: 0,
   failed: 0,
@@ -43,7 +47,7 @@ async function runGeneration(count: number, creds: ReturnType<typeof getCredenti
   const url = `${instance}/api/now/table/incident`;
 
   for (let i = 1; i <= count; i++) {
-    if (!state.running) break;
+    if (!state.running || state.cancelRequested) break;
 
     const stateValue = STATES[i % STATES.length];
     const isTerminal = stateValue === "Resolved" || stateValue === "Closed";
@@ -95,10 +99,16 @@ async function runGeneration(count: number, creds: ReturnType<typeof getCredenti
     }
   }
 
+  const wasCancelled = state.cancelRequested;
   state.running = false;
+  state.cancelRequested = false;
   state.completedAt = Date.now();
+  state.status = wasCancelled ? "cancelled" : "completed";
   const elapsed = ((state.completedAt - (state.startedAt ?? state.completedAt)) / 1000).toFixed(1);
-  logger.info({ created: state.created, failed: state.failed, elapsed: `${elapsed}s` }, "Test data generation complete");
+  logger.info(
+    { created: state.created, failed: state.failed, elapsed: `${elapsed}s`, cancelled: wasCancelled },
+    wasCancelled ? "Test data generation cancelled" : "Test data generation complete"
+  );
 }
 
 router.post("/test-data/generate", async (req, res) => {
@@ -124,6 +134,8 @@ router.post("/test-data/generate", async (req, res) => {
   }
 
   state.running = true;
+  state.cancelRequested = false;
+  state.status = "running";
   state.total = count;
   state.created = 0;
   state.failed = 0;
@@ -136,11 +148,14 @@ router.post("/test-data/generate", async (req, res) => {
   runGeneration(count, creds).catch((err) => {
     logger.error({ err }, "Unhandled error in test data generation");
     state.running = false;
+    state.cancelRequested = false;
+    state.status = "completed";
     state.completedAt = Date.now();
   });
 
   res.status(202).json({
     running: state.running,
+    status: state.status,
     total: state.total,
     created: state.created,
     failed: state.failed,
@@ -150,9 +165,20 @@ router.post("/test-data/generate", async (req, res) => {
   });
 });
 
+router.post("/test-data/cancel", (_req, res) => {
+  if (!state.running) {
+    res.status(409).json({ error: "No generation is currently running." });
+    return;
+  }
+  state.cancelRequested = true;
+  logger.info("Cancel requested for test data generation");
+  res.json({ message: "Cancel requested. Generation will stop after the current record." });
+});
+
 router.get("/test-data/status", (_req, res) => {
   res.json({
     running: state.running,
+    status: state.status,
     total: state.total,
     created: state.created,
     failed: state.failed,
