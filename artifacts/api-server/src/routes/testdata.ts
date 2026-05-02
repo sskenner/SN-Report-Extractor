@@ -5,7 +5,7 @@ const router = Router();
 
 const CATEGORIES = ["Software", "Hardware", "Network", "Inquiry / Help", "Database"];
 const PRIORITIES = ["1 - Critical", "2 - High", "3 - Moderate", "4 - Low"];
-const STATES = ["New", "In Progress", "On Hold", "Resolved", "Closed"];
+const STATES = ["New", "In Progress", "On Hold"];
 
 type GenerationState = {
   running: boolean;
@@ -44,27 +44,19 @@ async function runGeneration(count: number, creds: ReturnType<typeof getCredenti
 
   const { instance, username, password } = creds;
   const basicAuth = Buffer.from(`${username}:${password}`).toString("base64");
-  const url = `${instance}/api/now/table/incident`;
+  const url = `${instance}/api/now/table/incident?sysparm_input_display_value=true`;
 
   for (let i = 1; i <= count; i++) {
     if (!state.running || state.cancelRequested) break;
-
-    const stateValue = STATES[i % STATES.length];
-    const isTerminal = stateValue === "Resolved" || stateValue === "Closed";
 
     const payload: Record<string, string> = {
       short_description: `Test incident ${i} - auto generated for API testing`,
       category: CATEGORIES[i % CATEGORIES.length],
       priority: PRIORITIES[i % PRIORITIES.length],
-      state: stateValue,
+      state: STATES[i % STATES.length],
       caller_id: "admin",
       description: `This is test record number ${i} created for pagination testing.`,
     };
-
-    if (isTerminal) {
-      payload.close_code = "Solved (Permanently)";
-      payload.close_notes = "Resolved during automated test data generation.";
-    }
 
     try {
       const response = await fetch(url, {
