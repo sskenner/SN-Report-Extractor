@@ -5,9 +5,6 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
-export interface HealthStatus {
-  status: string;
-}
 
 export interface PingResult {
   /** Whether the connection to ServiceNow succeeded */
@@ -18,8 +15,4 @@ export interface PingResult {
   latencyMs: number;
   /** Error message if ok=false */
   error?: string;
-}
-
-export interface ApiError {
-  error: string;
 }

@@ -13,7 +13,7 @@ import type {
   UseQueryResult,
 } from "@tanstack/react-query";
 
-import type { HealthStatus } from "./api.schemas";
+import type { ApiError, HealthStatus, PingResult } from "./api.schemas";
 
 import { customFetch } from "../custom-fetch";
 import type { ErrorType } from "../custom-fetch";
@@ -92,6 +92,82 @@ export function useHealthCheck<
   request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getHealthCheckQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Makes a lightweight request to the configured ServiceNow instance and returns connection status
+ * @summary Test ServiceNow connectivity
+ */
+export const getServicenowPingUrl = () => {
+  return `/api/servicenow/ping`;
+};
+
+export const servicenowPing = async (
+  options?: RequestInit,
+): Promise<PingResult> => {
+  return customFetch<PingResult>(getServicenowPingUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getServicenowPingQueryKey = () => {
+  return [`/api/servicenow/ping`] as const;
+};
+
+export const getServicenowPingQueryOptions = <
+  TData = Awaited<ReturnType<typeof servicenowPing>>,
+  TError = ErrorType<ApiError>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof servicenowPing>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getServicenowPingQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof servicenowPing>>> = ({
+    signal,
+  }) => servicenowPing({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof servicenowPing>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ServicenowPingQueryResult = NonNullable<
+  Awaited<ReturnType<typeof servicenowPing>>
+>;
+export type ServicenowPingQueryError = ErrorType<ApiError>;
+
+/**
+ * @summary Test ServiceNow connectivity
+ */
+
+export function useServicenowPing<
+  TData = Awaited<ReturnType<typeof servicenowPing>>,
+  TError = ErrorType<ApiError>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof servicenowPing>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getServicenowPingQueryOptions(options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

@@ -14,3 +14,16 @@ import * as zod from "zod";
 export const HealthCheckResponse = zod.object({
   status: zod.string(),
 });
+
+/**
+ * Makes a lightweight request to the configured ServiceNow instance and returns connection status
+ * @summary Test ServiceNow connectivity
+ */
+export const ServicenowPingResponse = zod.object({
+  ok: zod.boolean().describe("Whether the connection to ServiceNow succeeded"),
+  instance: zod
+    .string()
+    .describe("The ServiceNow instance URL that was tested"),
+  latencyMs: zod.number().describe("Round-trip latency in milliseconds"),
+  error: zod.string().optional().describe("Error message if ok=false"),
+});

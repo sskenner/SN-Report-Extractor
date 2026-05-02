@@ -10,6 +10,8 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: servicenow
+    description: ServiceNow connectivity operations
 paths:
   /healthz:
     get:
@@ -24,6 +26,25 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /servicenow/ping:
+    get:
+      operationId: servicenowPing
+      tags: [servicenow]
+      summary: Test ServiceNow connectivity
+      description: Makes a lightweight request to the configured ServiceNow instance and returns connection status
+      responses:
+        "200":
+          description: Connection result (ok=true means connected, ok=false means failed)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PingResult"
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
 components:
   schemas:
     HealthStatus:
@@ -33,4 +54,29 @@ components:
           type: string
       required:
         - status
-
+    PingResult:
+      type: object
+      properties:
+        ok:
+          type: boolean
+          description: Whether the connection to ServiceNow succeeded
+        instance:
+          type: string
+          description: The ServiceNow instance URL that was tested
+        latencyMs:
+          type: number
+          description: Round-trip latency in milliseconds
+        error:
+          type: string
+          description: Error message if ok=false
+      required:
+        - ok
+        - instance
+        - latencyMs
+    ApiError:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
