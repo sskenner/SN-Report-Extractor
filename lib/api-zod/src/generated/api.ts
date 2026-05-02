@@ -120,3 +120,55 @@ export const VerifyReportResponse = zod.object({
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
+
+/**
+ * Paginates through ServiceNow table API and streams a CSV file response
+ * @summary Execute a report and download CSV
+ */
+export const RunReportParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const RunReportBody = zod.object({
+  filter: zod
+    .string()
+    .optional()
+    .describe("Optional filter override; uses saved filterQuery if omitted"),
+});
+
+/**
+ * @summary List run history for a report
+ */
+export const ListReportRunsParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const ListReportRunsResponseItem = zod.object({
+  id: zod.number(),
+  reportConfigId: zod.number(),
+  reportName: zod.string(),
+  startedAt: zod.coerce.date(),
+  completedAt: zod.coerce.date().nullish(),
+  recordCount: zod.number(),
+  status: zod.string().describe("running | success | error"),
+  errorMessage: zod.string().nullish(),
+});
+export const ListReportRunsResponse = zod.array(ListReportRunsResponseItem);
+
+/**
+ * @summary Get the most recent run for a report
+ */
+export const LatestReportRunParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const LatestReportRunResponse = zod.object({
+  id: zod.number(),
+  reportConfigId: zod.number(),
+  reportName: zod.string(),
+  startedAt: zod.coerce.date(),
+  completedAt: zod.coerce.date().nullish(),
+  recordCount: zod.number(),
+  status: zod.string().describe("running | success | error"),
+  errorMessage: zod.string().nullish(),
+});

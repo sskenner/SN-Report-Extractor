@@ -1,4 +1,4 @@
-import { pgTable, serial, text, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, timestamp, integer } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -29,3 +29,18 @@ export const updateReportConfigSchema = insertReportConfigSchema.partial();
 export type InsertReportConfig = z.infer<typeof insertReportConfigSchema>;
 export type UpdateReportConfig = z.infer<typeof updateReportConfigSchema>;
 export type ReportConfig = typeof reportConfigsTable.$inferSelect;
+
+export const reportRunsTable = pgTable("report_runs", {
+  id: serial("id").primaryKey(),
+  reportConfigId: integer("report_config_id")
+    .notNull()
+    .references(() => reportConfigsTable.id, { onDelete: "cascade" }),
+  reportName: text("report_name").notNull(),
+  startedAt: timestamp("started_at").notNull().defaultNow(),
+  completedAt: timestamp("completed_at"),
+  recordCount: integer("record_count").notNull().default(0),
+  status: text("status").notNull().default("running"),
+  errorMessage: text("error_message"),
+});
+
+export type ReportRun = typeof reportRunsTable.$inferSelect;

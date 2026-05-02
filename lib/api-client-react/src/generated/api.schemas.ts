@@ -55,3 +55,20 @@ export interface UpdateReportRequest {
   filterQuery?: string;
   fields?: string;
 }
+
+export interface RunReportRequest {
+  /** Optional filter override; uses saved filterQuery if omitted */
+  filter?: string;
+}
+
+export interface ReportRun {
+  id: number;
+  reportConfigId: number;
+  reportName: string;
+  startedAt: string;
+  completedAt?: string | null;
+  recordCount: number;
+  /** running | success | error */
+  status: string;
+  errorMessage?: string | null;
+}

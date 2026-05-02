@@ -22,6 +22,8 @@ import type {
   HealthStatus,
   PingResult,
   ReportConfig,
+  ReportRun,
+  RunReportRequest,
   ServicenowConfig,
   UpdateReportRequest,
 } from "./api.schemas";
@@ -679,3 +681,265 @@ export const useVerifyReport = <
 > => {
   return useMutation(getVerifyReportMutationOptions(options));
 };
+
+/**
+ * Paginates through ServiceNow table API and streams a CSV file response
+ * @summary Execute a report and download CSV
+ */
+export const getRunReportUrl = (id: number) => {
+  return `/api/reports/${id}/run`;
+};
+
+export const runReport = async (
+  id: number,
+  runReportRequest?: RunReportRequest,
+  options?: RequestInit,
+): Promise<string> => {
+  return customFetch<string>(getRunReportUrl(id), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(runReportRequest),
+  });
+};
+
+export const getRunReportMutationOptions = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof runReport>>,
+    TError,
+    { id: number; data: BodyType<RunReportRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof runReport>>,
+  TError,
+  { id: number; data: BodyType<RunReportRequest> },
+  TContext
+> => {
+  const mutationKey = ["runReport"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof runReport>>,
+    { id: number; data: BodyType<RunReportRequest> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return runReport(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RunReportMutationResult = NonNullable<
+  Awaited<ReturnType<typeof runReport>>
+>;
+export type RunReportMutationBody = BodyType<RunReportRequest>;
+export type RunReportMutationError = ErrorType<ApiError>;
+
+/**
+ * @summary Execute a report and download CSV
+ */
+export const useRunReport = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof runReport>>,
+    TError,
+    { id: number; data: BodyType<RunReportRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof runReport>>,
+  TError,
+  { id: number; data: BodyType<RunReportRequest> },
+  TContext
+> => {
+  return useMutation(getRunReportMutationOptions(options));
+};
+
+/**
+ * @summary List run history for a report
+ */
+export const getListReportRunsUrl = (id: number) => {
+  return `/api/reports/${id}/runs`;
+};
+
+export const listReportRuns = async (
+  id: number,
+  options?: RequestInit,
+): Promise<ReportRun[]> => {
+  return customFetch<ReportRun[]>(getListReportRunsUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListReportRunsQueryKey = (id: number) => {
+  return [`/api/reports/${id}/runs`] as const;
+};
+
+export const getListReportRunsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listReportRuns>>,
+  TError = ErrorType<ApiError>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listReportRuns>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListReportRunsQueryKey(id);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listReportRuns>>> = ({
+    signal,
+  }) => listReportRuns(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listReportRuns>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListReportRunsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listReportRuns>>
+>;
+export type ListReportRunsQueryError = ErrorType<ApiError>;
+
+/**
+ * @summary List run history for a report
+ */
+
+export function useListReportRuns<
+  TData = Awaited<ReturnType<typeof listReportRuns>>,
+  TError = ErrorType<ApiError>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listReportRuns>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListReportRunsQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get the most recent run for a report
+ */
+export const getLatestReportRunUrl = (id: number) => {
+  return `/api/reports/${id}/runs/latest`;
+};
+
+export const latestReportRun = async (
+  id: number,
+  options?: RequestInit,
+): Promise<ReportRun> => {
+  return customFetch<ReportRun>(getLatestReportRunUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getLatestReportRunQueryKey = (id: number) => {
+  return [`/api/reports/${id}/runs/latest`] as const;
+};
+
+export const getLatestReportRunQueryOptions = <
+  TData = Awaited<ReturnType<typeof latestReportRun>>,
+  TError = ErrorType<ApiError>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof latestReportRun>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getLatestReportRunQueryKey(id);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof latestReportRun>>> = ({
+    signal,
+  }) => latestReportRun(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof latestReportRun>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type LatestReportRunQueryResult = NonNullable<
+  Awaited<ReturnType<typeof latestReportRun>>
+>;
+export type LatestReportRunQueryError = ErrorType<ApiError>;
+
+/**
+ * @summary Get the most recent run for a report
+ */
+
+export function useLatestReportRun<
+  TData = Awaited<ReturnType<typeof latestReportRun>>,
+  TError = ErrorType<ApiError>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof latestReportRun>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getLatestReportRunQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}

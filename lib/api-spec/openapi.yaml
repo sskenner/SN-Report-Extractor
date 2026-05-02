@@ -213,6 +213,111 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiError"
+  /reports/{id}/run:
+    post:
+      operationId: runReport
+      tags: [reports]
+      summary: Execute a report and download CSV
+      description: Paginates through ServiceNow table API and streams a CSV file response
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RunReportRequest"
+      responses:
+        "200":
+          description: CSV file download
+          content:
+            text/csv:
+              schema:
+                type: string
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: Report not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /reports/{id}/runs:
+    get:
+      operationId: listReportRuns
+      tags: [reports]
+      summary: List run history for a report
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of run records
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ReportRun"
+        "404":
+          description: Report not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /reports/{id}/runs/latest:
+    get:
+      operationId: latestReportRun
+      tags: [reports]
+      summary: Get the most recent run for a report
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Latest run record or null
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReportRun"
+        "404":
+          description: Report not found or no runs yet
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
 components:
   schemas:
     HealthStatus:
@@ -320,3 +425,40 @@ components:
           type: string
         fields:
           type: string
+    RunReportRequest:
+      type: object
+      properties:
+        filter:
+          type: string
+          description: Optional filter override; uses saved filterQuery if omitted
+    ReportRun:
+      type: object
+      properties:
+        id:
+          type: integer
+        reportConfigId:
+          type: integer
+        reportName:
+          type: string
+        startedAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: string
+          format: date-time
+          nullable: true
+        recordCount:
+          type: integer
+        status:
+          type: string
+          description: "running | success | error"
+        errorMessage:
+          type: string
+          nullable: true
+      required:
+        - id
+        - reportConfigId
+        - reportName
+        - startedAt
+        - recordCount
+        - status
